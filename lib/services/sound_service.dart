@@ -1,0 +1,103 @@
+import 'package:flame_audio/flame_audio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+enum Sfx { crash, whoosh, bump, beep, go, win, fail, click, coin }
+
+/// One-shot effects plus a looping engine note whose pitch follows the
+/// speedo. All sounds are synthesised by `tool/gen_audio.js`.
+///
+/// `init()` is fired unawaited from `main()`: a broken asset can leave pool
+/// creation hanging on web, and that must never hold up the first frame.
+/// Every call here is a safe no-op until loading is done or when muted.
+class SoundService {
+  SoundService._();
+  static final SoundService instance = SoundService._();
+
+  static const _key = 'sound_enabled';
+
+  final ValueNotifier<bool> enabled = ValueNotifier<bool>(true);
+  final Map<Sfx, AudioPool> _pools = {};
+  AudioPlayer? _engine;
+  bool _engineWanted = false;
+  bool _engineRunning = false;
+  double _lastRate = 0;
+
+  Future<void> init() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      enabled.value = prefs.getBool(_key) ?? true;
+    } catch (_) {}
+    for (final s in Sfx.values) {
+      try {
+        _pools[s] = await FlameAudio.createPool(
+          '${s.name}.wav',
+          minPlayers: 1,
+          maxPlayers: s == Sfx.whoosh ? 3 : 2,
+        ).timeout(const Duration(seconds: 5));
+      } catch (_) {
+        // That one effect just stays silent.
+      }
+    }
+    try {
+      final player = AudioPlayer();
+      await player.setReleaseMode(ReleaseMode.loop);
+      await player
+          .setSource(AssetSource('audio/engine.wav'))
+          .timeout(const Duration(seconds: 5));
+      _engine = player;
+      if (_engineWanted) startEngine();
+    } catch (_) {}
+  }
+
+  void play(Sfx s, {double volume = 1}) {
+    if (!enabled.value) return;
+    try {
+      _pools[s]?.start(volume: volume);
+    } catch (_) {}
+  }
+
+  void startEngine() {
+    _engineWanted = true;
+    if (!enabled.value || _engine == null || _engineRunning) return;
+    _engineRunning = true;
+    _lastRate = 0;
+    _guard(_engine!.resume());
+  }
+
+  /// [rev] 0..1 of the bike's range; [voice] shifts the whole note so a
+  /// big single sounds lower than a Cub.
+  void revEngine(double rev, {double voice = 1}) {
+    if (!_engineRunning) return;
+    final rate = ((0.8 + 1.5 * rev.clamp(0, 1)) * voice).clamp(0.5, 3.0).toDouble();
+    if ((rate - _lastRate).abs() < 0.03) return;
+    _lastRate = rate;
+    _guard(_engine!.setPlaybackRate(rate));
+    _guard(_engine!.setVolume(0.3 + 0.35 * rev.clamp(0, 1)));
+  }
+
+  void stopEngine() {
+    _engineWanted = false;
+    if (!_engineRunning) return;
+    _engineRunning = false;
+    _guard(_engine!.pause());
+  }
+
+  Future<void> toggle() async {
+    enabled.value = !enabled.value;
+    if (!enabled.value && _engineRunning) {
+      _engineRunning = false;
+      _guard(_engine!.pause());
+    } else if (enabled.value && _engineWanted) {
+      startEngine();
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_key, enabled.value);
+    } catch (_) {}
+  }
+
+  static void _guard(Future<void> f) {
+    f.catchError((Object _) {});
+  }
+}
