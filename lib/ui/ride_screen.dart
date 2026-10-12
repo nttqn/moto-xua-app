@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../core/bikes.dart';
 import '../core/content.dart';
+import '../core/track.dart';
 import '../core/world.dart';
 import '../game/ride_game.dart';
 import '../services/progress.dart';
@@ -40,7 +41,7 @@ class _Outcome {
   final bool good;
 }
 
-class _RideScreenState extends State<RideScreen> {
+class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
   late RideGame _game;
   late World _world;
   bool _paused = false;
@@ -58,6 +59,8 @@ class _RideScreenState extends State<RideScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    HardwareKeyboard.instance.addHandler(_onKey);
     _start();
   }
 
@@ -107,6 +110,8 @@ class _RideScreenState extends State<RideScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    HardwareKeyboard.instance.removeHandler(_onKey);
     _game.hudTick.removeListener(_onTick);
     SoundService.instance.stopEngine();
     _popupTimer?.cancel();
@@ -126,6 +131,9 @@ class _RideScreenState extends State<RideScreen> {
         sound.play(Sfx.whoosh);
       case WorldEvent.bump:
         sound.play(Sfx.bump);
+      case WorldEvent.scrape:
+        sound.play(Sfx.scrape, volume: 0.8);
+        HapticFeedback.lightImpact();
       case WorldEvent.finish:
         // A race finished outside the top three is no fanfare.
         sound.play(_world.success ? Sfx.win : Sfx.fail);
@@ -141,9 +149,10 @@ class _RideScreenState extends State<RideScreen> {
         _say('XUẤT PHÁT!');
       case WorldEvent.crash:
         HapticFeedback.heavyImpact();
+        final what = _crashText[_world.hitProp] ?? 'NGÃ XE!';
         _say(_world.config.mode == RunMode.endless && _world.lives > 0
-            ? 'NGÃ XE!  còn ${_world.lives} mạng'
-            : 'NGÃ XE!');
+            ? '$what\ncòn ${_world.lives} mạng'
+            : what);
       case WorldEvent.nearMiss:
         HapticFeedback.selectionClick();
         _say(_world.combo > 1 ? 'LÁCH SÁT  x${_world.combo}' : 'LÁCH SÁT!');
@@ -152,9 +161,36 @@ class _RideScreenState extends State<RideScreen> {
         // Let the bike roll on for a beat before the board comes up.
         _resultTimer = Timer(const Duration(milliseconds: 1400), _showResult);
       case WorldEvent.bump:
+      case WorldEvent.scrape:
       case WorldEvent.overtake:
         break;
     }
+  }
+
+  static const Map<Prop, String> _crashText = {
+    Prop.house: 'TÔNG VÀO NHÀ!',
+    Prop.hut: 'TÔNG VÀO NHÀ!',
+    Prop.pole: 'TÔNG CỘT ĐIỆN!',
+    Prop.lamp: 'TÔNG CỘT ĐÈN!',
+    Prop.tree: 'TÔNG GỐC CÂY!',
+    Prop.bigTree: 'TÔNG GỐC CÂY!',
+    Prop.palm: 'TÔNG GỐC DỪA!',
+    Prop.banana: 'LAO VÀO BỤI CHUỐI!',
+    Prop.bamboo: 'LAO VÀO BỤI TRE!',
+    Prop.pine: 'TÔNG GỐC THÔNG!',
+    Prop.haystack: 'LAO VÀO CÂY RƠM!',
+    Prop.buffalo: 'TÔNG CON TRÂU!',
+    Prop.milestone: 'TÔNG CỘT MỐC!',
+    Prop.post: 'TÔNG CỌC TIÊU!',
+    Prop.billboard: 'TÔNG BIỂN QUẢNG CÁO!',
+    Prop.stall: 'TÔNG SẠP HÀNG!',
+    Prop.rock: 'TÔNG VÁCH ĐÁ!',
+  };
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Leaving the app mid-ride pauses it, engine note and all.
+    if (state != AppLifecycleState.resumed && !_paused) _togglePause();
   }
 
   void _say(String text) {
@@ -256,19 +292,22 @@ class _RideScreenState extends State<RideScreen> {
         _keys.contains(LogicalKeyboardKey.keyS);
   }
 
-  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+  /// Registered with [HardwareKeyboard] rather than a Focus widget: the
+  /// GameWidget holds the focus and swallows key events before any
+  /// ancestor sees them.
+  bool _onKey(KeyEvent event) {
     if (event is KeyDownEvent) {
       if (event.logicalKey == LogicalKeyboardKey.escape ||
           event.logicalKey == LogicalKeyboardKey.keyP) {
         _togglePause();
-        return KeyEventResult.handled;
+        return true;
       }
       _keys.add(event.logicalKey);
     } else if (event is KeyUpEvent) {
       _keys.remove(event.logicalKey);
     }
     _syncInput();
-    return KeyEventResult.handled;
+    return false;
   }
 
   @override
@@ -285,8 +324,6 @@ class _RideScreenState extends State<RideScreen> {
         backgroundColor: Colors.black,
         body: Focus(
           focusNode: _focus,
-          autofocus: true,
-          onKeyEvent: _onKey,
           child: Stack(
             fit: StackFit.expand,
             children: [

@@ -50,25 +50,46 @@ function lowpass(x, cutoff) {
   return x;
 }
 
-// Single-cylinder four-stroke at idle: one soft thump per firing, 26 of
-// them in exactly one second so the file loops without a click. The game
-// changes the playback rate to rev it.
+// Single-cylinder four-stroke: one thump per firing, 80 of them in exactly
+// two seconds so the file loops without a click. The game plays it at 0.5x
+// to 2x (the range Android's SoundPool allows) to rev it. Each firing is a
+// touch different in strength so the loop does not sound like a machine gun.
 function engine() {
-  const x = buf(1);
-  const fires = 26;
+  const x = buf(2);
+  const fires = 80;
   const period = x.length / fires;
-  const rasp = lowpass(Float64Array.from(buf(1), noise), 1800);
+  const rasp = lowpass(Float64Array.from(x, noise), 1800);
+  const strength = Array.from({ length: fires }, () => 0.85 + 0.15 * noise());
   for (let i = 0; i < x.length; i++) {
-    const phase = (i % period) / period;
+    const n = Math.floor(i / period) % fires;
+    const phase = (i - n * period) / period;
     const t = phase * (period / RATE);
-    const thump = Math.exp(-phase * 7);
+    const thump = Math.exp(-phase * 5) * strength[n];
     x[i] =
-      thump * (Math.sin(2 * Math.PI * 82 * t) + 0.55 * Math.sin(2 * Math.PI * 164 * t + 0.4)) +
+      thump * (Math.sin(2 * Math.PI * 96 * t) + 0.55 * Math.sin(2 * Math.PI * 192 * t + 0.4)) +
       thump * thump * 0.5 * rasp[i] +
-      0.08 * Math.sin((2 * Math.PI * 52 * i) / RATE);
+      0.1 * Math.sin((2 * Math.PI * 60 * i) / RATE);
   }
   for (let i = 0; i < x.length; i++) x[i] = Math.tanh(x[i] * 1.6);
   write('engine.wav', x, 0.6);
+}
+
+// Metal dragged along a kerb: a short gritty rasp, retriggered while it lasts.
+function scrape() {
+  const x = buf(0.26);
+  const grit = Float64Array.from(x, noise);
+  let y = 0;
+  for (let i = 0; i < x.length; i++) {
+    const t = i / x.length;
+    // Band-limited by differencing a low-pass: keeps the harsh middle.
+    const a = 1 - Math.exp((-2 * Math.PI * 3800) / RATE);
+    const prev = y;
+    y += a * (grit[i] - y);
+    const band = y - prev * 0.6;
+    const chatter = 0.6 + 0.4 * Math.sign(Math.sin(2 * Math.PI * 90 * (i / RATE)));
+    x[i] = band * chatter * Math.sin(Math.PI * t) ** 0.6;
+  }
+  write('scrape.wav', x, 0.55);
 }
 
 function crash() {
@@ -128,6 +149,7 @@ function bump() {
 }
 
 engine();
+scrape();
 crash();
 whoosh();
 bump();

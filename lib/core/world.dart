@@ -148,7 +148,48 @@ class Controls {
 
 enum Phase { countdown, running, finished }
 
-enum WorldEvent { go, crash, bump, nearMiss, overtake, finish, fail }
+enum WorldEvent { go, crash, bump, scrape, nearMiss, overtake, finish, fail }
+
+/// The kerb runs from here ...
+const double kKerbInner = 0.95;
+
+/// ... to here; beyond it is pavement or dirt.
+const double kKerbOuter = 1.1;
+
+/// As far off the road as a bike can get.
+const double kVergeLimit = 1.5;
+
+class Solid {
+  const Solid(this.halfWidth, [this.depth = 1.4]);
+
+  /// In road half-widths.
+  final double halfWidth;
+
+  /// Metres either side of the object along the road.
+  final double depth;
+}
+
+/// Roadside scenery that cannot be ridden through. House fronts are deep
+/// enough to join into an unbroken wall; bushes are left soft.
+const Map<Prop, Solid> propSolids = {
+  Prop.house: Solid(0.71, 4.1),
+  Prop.pole: Solid(0.05),
+  Prop.lamp: Solid(0.05),
+  Prop.tree: Solid(0.07),
+  Prop.bigTree: Solid(0.10),
+  Prop.palm: Solid(0.06),
+  Prop.banana: Solid(0.10),
+  Prop.bamboo: Solid(0.25),
+  Prop.haystack: Solid(0.30, 1.8),
+  Prop.buffalo: Solid(0.28, 1.6),
+  Prop.hut: Solid(0.60, 2.5),
+  Prop.milestone: Solid(0.07),
+  Prop.billboard: Solid(0.50),
+  Prop.stall: Solid(0.30, 1.6),
+  Prop.post: Solid(0.04, 1.0),
+  Prop.rock: Solid(0.80, 3.0),
+  Prop.pine: Solid(0.06),
+};
 
 /// Which traffic turns up where.
 const Map<ThemeId, List<VehicleKind>> _trafficMix = {
@@ -247,6 +288,16 @@ class World {
   /// What the last crash was into; for tuning and tests.
   String lastHit = '';
 
+  /// The roadside object of the last crash, or null if it was a vehicle.
+  Prop? hitProp;
+
+  /// Wheels on the kerb right now.
+  bool scraping = false;
+
+  /// Past the kerb, on the pavement or the dirt.
+  bool offRoad = false;
+  double _scrapeCooldown = 0;
+
   bool get fallen => crashTimer > 0;
   double get speedKmh => shownKmh(speed);
   double get distanceMeters => z / kSpeedScale;
@@ -311,6 +362,7 @@ class World {
     if (crashTimer > 0) {
       crashTimer -= dt;
       speed = 0;
+      scraping = false;
       steer += (0 - steer) * math.min(1, dt * 6);
       return;
     }
@@ -321,15 +373,28 @@ class World {
     } else {
       speed += stats.accel * (top * 1.03 - speed) * dt;
     }
-    final offRoad = x.abs() > 1;
+    final edge = x.abs();
+    offRoad = edge > kKerbOuter;
+    scraping = edge > kKerbInner && !offRoad && speed > worldSpeed(15);
     if (offRoad && speed > top * 0.4) speed -= worldSpeed(60) * dt;
+    if (scraping) {
+      // Grinding along the kerb scrubs speed and makes itself heard.
+      if (speed > top * 0.6) speed -= worldSpeed(28) * dt;
+      _scrapeCooldown -= dt;
+      if (_scrapeCooldown <= 0) {
+        events.add(WorldEvent.scrape);
+        _scrapeCooldown = 0.22;
+      }
+    } else {
+      _scrapeCooldown = 0;
+    }
     speed = speed.clamp(0, top).toDouble();
 
     final sp = speed / top;
     final curve = track.segmentAt(z).curve;
     x += steer * stats.handling * (0.3 + 0.7 * sp) * dt;
     x -= curve * sp * sp * (0.13 / stats.grip) * dt;
-    x = x.clamp(-1.2, 1.2).toDouble();
+    x = x.clamp(-kVergeLimit, kVergeLimit).toDouble();
     z += speed * dt;
 
     if (inOncomingLane && speed > top * 0.6) {
@@ -409,6 +474,7 @@ class World {
               'dx=${dx.toStringAsFixed(2)} lane=${v.lane} dir=${v.dir} '
               'x=${x.toStringAsFixed(2)} v=${speed.toStringAsFixed(0)} '
               'vv=${v.speed.toStringAsFixed(0)}';
+          hitProp = null;
           _crash();
         }
         v.ahead = v.z > z;
@@ -435,6 +501,8 @@ class World {
       v.ahead = nowAhead;
     }
 
+    _hitRoadside();
+
     for (final r in racers) {
       final dz = r.z - z;
       final dx = r.x - x;
@@ -451,6 +519,35 @@ class World {
           events.add(WorldEvent.bump);
           _bumpCooldown = 0.6;
         }
+      }
+    }
+  }
+
+  /// Trees, poles, stalls and house fronts are solid: riding into one off
+  /// the tarmac is a crash, and the bike is thrown back onto the road.
+  void _hitRoadside() {
+    if (x.abs() <= 1 || crashTimer > 0 || invulnerable > 0) return;
+    final here = (z / kSegmentLength).floor();
+    final n = track.segments.length;
+    for (var i = here - 1; i <= here + 1; i++) {
+      final seg = track.segments[(i % n + n) % n];
+      for (final item in seg.scenery) {
+        final solid = propSolids[item.prop];
+        if (solid == null) continue;
+        final dz = (i + 0.5) * kSegmentLength - z;
+        if (dz.abs() > solid.depth) continue;
+        if ((item.x - x).abs() > solid.halfWidth + kRiderWidth / 2) continue;
+        final side = x.sign;
+        x = side * 0.8;
+        if (speed < worldSpeed(10)) {
+          // Walking pace: just bounced back, no fall.
+          speed = 0;
+          return;
+        }
+        hitProp = item.prop;
+        lastHit = item.prop.name;
+        _crash();
+        return;
       }
     }
   }

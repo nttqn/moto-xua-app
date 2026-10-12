@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum Sfx { crash, whoosh, bump, beep, go, win, fail, click, coin }
+enum Sfx { crash, whoosh, bump, scrape, beep, go, win, fail, click, coin }
 
 /// One-shot effects plus a looping engine note whose pitch follows the
 /// speedo. All sounds are synthesised by `tool/gen_audio.js`.
@@ -28,6 +30,15 @@ class SoundService {
       final prefs = await SharedPreferences.getInstance();
       enabled.value = prefs.getBool(_key) ?? true;
     } catch (_) {}
+    try {
+      // By default every player asks Android for audio focus when it
+      // starts, which pauses whichever player had it: each effect would cut
+      // the engine note. Nothing here needs focus, so nobody takes it.
+      await AudioPlayer.global.setAudioContext(AudioContext(
+        android: const AudioContextAndroid(audioFocus: AndroidAudioFocus.none),
+        iOS: AudioContextIOS(category: AVAudioSessionCategory.ambient),
+      ));
+    } catch (_) {}
     for (final s in Sfx.values) {
       try {
         _pools[s] = await FlameAudio.createPool(
@@ -41,10 +52,18 @@ class SoundService {
     }
     try {
       final player = AudioPlayer();
+      // Low-latency mode is SoundPool on Android: it loops a short sample
+      // with no gap and changes pitch without a hiccup, which the default
+      // MediaPlayer does not.
+      await player.setPlayerMode(PlayerMode.lowLatency);
       await player.setReleaseMode(ReleaseMode.loop);
-      await player
-          .setSource(AssetSource('audio/engine.wav'))
-          .timeout(const Duration(seconds: 5));
+      try {
+        await player
+            .setSource(AssetSource('audio/engine.wav'))
+            .timeout(const Duration(seconds: 5));
+      } on TimeoutException {
+        // Keep the player: the sample may simply finish loading late.
+      }
       _engine = player;
       if (_engineWanted) startEngine();
     } catch (_) {}
@@ -69,7 +88,9 @@ class SoundService {
   /// big single sounds lower than a Cub.
   void revEngine(double rev, {double voice = 1}) {
     if (!_engineRunning) return;
-    final rate = ((0.8 + 1.5 * rev.clamp(0, 1)) * voice).clamp(0.5, 3.0).toDouble();
+    // 0.5..2.0 is all SoundPool allows.
+    final rate =
+        ((0.6 + 1.15 * rev.clamp(0, 1)) * voice).clamp(0.5, 2.0).toDouble();
     if ((rate - _lastRate).abs() < 0.03) return;
     _lastRate = rate;
     _guard(_engine!.setPlaybackRate(rate));

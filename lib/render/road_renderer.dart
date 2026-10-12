@@ -323,6 +323,7 @@ class RoadRenderer {
     final blink = w.invulnerable > 0 && !w.fallen && (clock * 10).floor().isOdd;
     place(bank.rider(playerBike, 0), w.z, w.x,
         lean: w.steer * 0.26, fallen: w.fallen, ghost: blink);
+    final me = items.isEmpty ? null : items.last;
 
     items.sort((a, b) => b.depth.compareTo(a.depth));
     for (final d in items) {
@@ -357,6 +358,10 @@ class RoadRenderer {
       if (needClip || transformed) canvas.restore();
     }
 
+    if (me != null && w.phase == Phase.running && !w.fallen) {
+      _roadsideFx(canvas, w, me, pal, clock);
+    }
+
     if (w.config.dusk) {
       canvas.drawRect(
         Offset.zero & size,
@@ -367,6 +372,66 @@ class RoadRenderer {
             const [Color(0x333B2A5E), Color(0x22E0703A), Color(0x44201838)],
             const [0, 0.4, 1],
           ),
+      );
+    }
+  }
+
+  /// Sparks off a painted kerb, dust off a dirt one, and a dust trail when
+  /// the bike is right off the road. Stateless: every particle's place is
+  /// worked out from the clock.
+  void _roadsideFx(Canvas canvas, World w, _Drawable me, Palette pal,
+      double clock) {
+    if (!w.scraping && !(w.offRoad && w.speed > worldSpeed(12))) return;
+    final side = w.x >= 0 ? 1.0 : -1.0;
+    final unit = me.sprite.worldW * me.scale;
+    final ox = me.sx + side * unit * 0.1;
+    final oy = me.sy - unit * 0.05;
+    final paved = w.config.theme == ThemeId.saigon ||
+        w.config.theme == ThemeId.hanoi;
+
+    if (w.scraping && paved) {
+      final paint = Paint()
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = unit * 0.038;
+      for (var k = 0; k < 24; k++) {
+        final phase = clock * 3.4 + k * 0.618;
+        final t = phase - phase.floorToDouble();
+        final r1 = _hash(k * 31 + phase.floor() * 17);
+        final r2 = _hash(k * 57 + phase.floor() * 29);
+        // Thrown back and outward, with a little hop.
+        final dx = side * unit * (0.05 + t * (0.25 + 0.7 * r1));
+        final dy = unit * (t * (0.35 + 0.5 * r2) -
+            math.sin(t * math.pi) * 0.22 * r1);
+        final tail = 0.3 * (1 - t);
+        paint.color = Color.lerp(const Color(0xFFFFF6C8),
+                const Color(0xFFFF8A1E), t)!
+            .withValues(alpha: 1 - t * t);
+        canvas.drawLine(
+          Offset(ox + dx, oy + dy),
+          Offset(ox + dx * (1 - tail), oy + dy * (1 - tail) - unit * 0.03),
+          paint,
+        );
+      }
+      canvas.drawCircle(Offset(ox, oy), unit * 0.13,
+          Paint()..color = const Color(0x55FFB340));
+      canvas.drawCircle(Offset(ox, oy), unit * 0.065,
+          Paint()..color = const Color(0xEEFFF6C8));
+      return;
+    }
+
+    // Dirt or pavement grit kicked up behind the wheel.
+    final dust = Color.lerp(pal.vergeA, const Color(0xFFFFFFFF), 0.25)!;
+    final paint = Paint();
+    for (var k = 0; k < 8; k++) {
+      final phase = clock * 2.2 + k * 0.618;
+      final t = phase - phase.floorToDouble();
+      final r1 = _hash(k * 31 + phase.floor() * 17);
+      paint.color = dust.withValues(alpha: 0.55 * (1 - t));
+      canvas.drawCircle(
+        Offset(ox + side * unit * (r1 - 0.3) * 0.5 * t,
+            oy + unit * (0.05 + 0.5 * t) - unit * 0.18 * t * r1),
+        unit * (0.07 + 0.22 * t),
+        paint,
       );
     }
   }

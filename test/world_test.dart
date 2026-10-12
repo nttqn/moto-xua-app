@@ -90,6 +90,48 @@ void main() {
     expect(close.nearMisses, 1);
   });
 
+  test('riding the kerb scrapes, riding into a house front is a crash', () {
+    const cfg = RunConfig(mode: RunMode.mission, theme: ThemeId.saigon,
+        seed: 1, distanceKm: 50, density: 0.0001, curviness: 0, hilliness: 0);
+    final stats = statsFor(bikes.first);
+
+    final kerb = World(cfg, stats)..traffic.clear();
+    kerb.speed = stats.topSpeed;
+    for (var i = 0; i < 60; i++) {
+      kerb.x = 1.02;
+      kerb.update(_dt, const Controls());
+    }
+    expect(kerb.scraping, isTrue);
+    expect(kerb.crashes, 0);
+    expect(kerb.events, contains(WorldEvent.scrape));
+    expect(kerb.speed, lessThan(stats.topSpeed));
+
+    final wall = World(cfg, stats)..traffic.clear();
+    wall.speed = stats.topSpeed;
+    // Hold full lock towards the houses until something gives.
+    for (var i = 0; i < 60 * 5 && wall.crashes == 0; i++) {
+      wall.update(_dt, const Controls(steer: 1));
+    }
+    expect(wall.crashes, 1);
+    expect(wall.hitProp, isNotNull);
+    expect(wall.x.abs(), lessThan(1), reason: 'thrown back onto the road');
+  });
+
+  test('every solid roadside object can actually be reached', () {
+    for (final theme in ThemeId.values) {
+      final t = Track.generate(theme: theme, seed: 2, lengthMeters: 6000);
+      for (final s in t.segments) {
+        for (final item in s.scenery) {
+          final solid = propSolids[item.prop];
+          if (solid == null) continue;
+          // Nothing solid may reach onto the tarmac itself.
+          expect(item.x.abs() - solid.halfWidth, greaterThan(1.0),
+              reason: '${item.prop} at ${item.x} in $theme');
+        }
+      }
+    }
+  });
+
   test('an endless run ends when the lives are gone', () {
     final cfg = endlessConfig(ThemeId.saigon, twoWay: true, seed: 4);
     final w = World(cfg, statsFor(bikes.first));
