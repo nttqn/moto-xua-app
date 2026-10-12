@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/bikes.dart';
-import '../game/ride_game.dart';
+import '../render/art_garage.dart';
 import '../services/progress.dart';
 import 'theme.dart';
 
@@ -59,7 +59,6 @@ class _BikeCard extends StatelessWidget {
     final levels = progress.parts[spec.id]!;
     final stats = statsFor(spec, levels);
     final best = statsAtLevel(bikes.last, maxPartLevel);
-    final sprite = RideGame.sharedBank.rider(spec.id, 0);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(6, 14, 6, 20),
@@ -83,7 +82,7 @@ class _BikeCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               padding: const EdgeInsets.all(10),
-              child: RawImage(image: sprite.image, fit: BoxFit.contain),
+              child: BikeSideView(spec.id),
             ),
             const SizedBox(height: 12),
             Text(spec.name,
