@@ -21,7 +21,7 @@ class AdsService {
 
   static String get bannerAdUnitId =>
       defaultTargetPlatform == TargetPlatform.iOS
-      ? 'ca-app-pub-3940256099942544/2934735716'
+      ? 'ca-app-pub-9078637596840810/1235629342'
       : 'ca-app-pub-9078637596840810/4087269378';
 
   static String get interstitialAdUnitId =>
