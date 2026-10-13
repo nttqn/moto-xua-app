@@ -21,7 +21,8 @@ const riderShirts = [
 class _Look {
   const _Look(this.body, this.trim, {this.shield = true, this.boxy = false,
     this.rack = false, this.chromeFender = false, this.highPipe = false,
-    this.roundLight = true});
+    this.roundLight = true, this.paleShield = false, this.stripe = false,
+    this.darkPipe = false, this.slim = false, this.crouch = false});
   final Color body;
   final Color trim;
   final bool shield;
@@ -30,15 +31,36 @@ class _Look {
   final bool chromeFender;
   final bool highPipe;
   final bool roundLight;
+
+  /// Leg shield in the trim colour instead of the body colour.
+  final bool paleShield;
+
+  /// A flash of trim across the tail.
+  final bool stripe;
+  final bool darkPipe;
+
+  /// Narrow motorcycle tail rather than a step-through's.
+  final bool slim;
+
+  /// Rider tucked forward.
+  final bool crouch;
 }
 
 const Map<BikeId, _Look> _looks = {
-  BikeId.cub: _Look(Color(0xFF2F6FB0), Color(0xFFF2EFE6), rack: true),
-  BikeId.wave: _Look(Color(0xFFC4262B), Color(0xFFF0C24B), roundLight: false),
+  BikeId.cub: _Look(Color(0xFF2F6FB0), Color(0xFFF2EFE6), rack: true,
+      paleShield: true),
+  BikeId.dd: _Look(Color(0xFFC8242B), Color(0xFFF2EFE6), rack: true,
+      paleShield: true, boxy: true, roundLight: false),
+  BikeId.wave: _Look(Color(0xFFC4262B), Color(0xFFF0C24B), roundLight: false,
+      stripe: true, darkPipe: true),
+  BikeId.simson: _Look(Color(0xFF2E7D4F), Color(0xFFB4BABD), shield: false,
+      rack: true, chromeFender: true, slim: true),
   BikeId.dream: _Look(Color(0xFF6B1F2A), Color(0xFFD9C7A0), boxy: true,
       rack: true, roundLight: false),
+  BikeId.sport: _Look(Color(0xFF1C3F94), Color(0xFFF2F4F6), roundLight: false,
+      stripe: true, highPipe: true),
   BikeId.x67: _Look(Color(0xFF1E1E22), Color(0xFFC9CED2), shield: false,
-      chromeFender: true, highPipe: true),
+      chromeFender: true, highPipe: true, slim: true, crouch: true),
 };
 
 /// A bike and rider, 60 x 100 design units, seen from behind or head-on.
@@ -89,8 +111,8 @@ void _riderRear(Canvas c, BikeId bike, int color) {
   }
   if (look.shield) {
     // Leg shield wings peeking out either side.
-    c.box(10, 46, 9, 28, look.shield && bike == BikeId.cub ? look.trim : look.body, 3);
-    c.box(41, 46, 9, 28, look.shield && bike == BikeId.cub ? look.trim : look.body, 3);
+    c.box(10, 46, 9, 28, look.paleShield ? look.trim : look.body, 3);
+    c.box(41, 46, 9, 28, look.paleShield ? look.trim : look.body, 3);
   }
 
   // Rear wheel and suspension.
@@ -109,18 +131,18 @@ void _riderRear(Canvas c, BikeId bike, int color) {
     c.poly([38, 80, 46, 62, 49, 63, 42, 82], _chrome);
     c.oval(47.5, 62, 2.2, 2.2, const Color(0xFF2A2A2A));
   } else {
-    c.box(38, 76, 7, 9, bike == BikeId.wave ? const Color(0xFF2A2A2A) : _chrome, 3);
+    c.box(38, 76, 7, 9, look.darkPipe ? const Color(0xFF2A2A2A) : _chrome, 3);
     c.oval(41.5, 80.5, 1.8, 1.8, const Color(0xFF111111));
   }
 
   // Tail section.
-  final tailW = look.boxy ? 26.0 : (bike == BikeId.x67 ? 14.0 : 20.0);
+  final tailW = look.boxy ? 26.0 : (look.slim ? 14.0 : 20.0);
   final tx = 30 - tailW / 2;
   c.box(tx, 53, tailW, 15, look.body, look.boxy ? 2 : 5);
-  if (bike == BikeId.wave) {
+  if (look.stripe) {
     c.poly([tx, 60, tx + tailW, 56, tx + tailW, 59, tx, 63], look.trim);
   }
-  if (bike == BikeId.dream) {
+  if (look.boxy) {
     c.box(tx, 60, tailW, 2, look.trim);
   }
   c.box(24, 64, 12, 8, look.chromeFender ? _chrome : shade(look.body, -0.25), 2);
@@ -154,7 +176,7 @@ void _riderRear(Canvas c, BikeId bike, int color) {
   c.box(19, 48, 22, 7, const Color(0xFF1C1C1C), 3);
 
   // Torso, arms, head.
-  final lean = bike == BikeId.x67 ? 3.0 : 0.0;
+  final lean = look.crouch ? 3.0 : 0.0;
   c.poly([19, 24 + lean, 41, 24 + lean, 40, 52, 20, 52], shirt);
   c.poly([19, 24 + lean, 23, 24 + lean, 23, 52, 20, 52], shade(shirt, -0.12));
   c.stroke(20.5, 28 + lean, 10.5, 40, shirt, 5.2);
@@ -189,7 +211,7 @@ void _riderFront(Canvas c, BikeId bike, int color) {
   c.box(33.8, 52, 2.2, 34, _chrome);
   c.box(24.5, 66, 11, 8, look.chromeFender ? _chrome : look.body, 3);
   if (look.shield) {
-    final col = bike == BikeId.cub ? look.trim : look.body;
+    final col = look.paleShield ? look.trim : look.body;
     c.poly([13, 48, 47, 48, 44, 76, 34, 80, 26, 80, 16, 76], col);
     c.box(27, 50, 6, 28, shade(col, -0.15));
   } else {
@@ -229,7 +251,7 @@ Sprite buildVehicle(VehicleKind kind, int v, bool front) {
     case VehicleKind.cyclo:
       return makeSprite(80, 100, 1.6, 144, (c) => _cyclo(c, v, front));
     case VehicleKind.moto:
-      return buildRider(BikeId.values[v % 4], 1 + v % 5, front: front);
+      return buildRider(BikeId.values[v % BikeId.values.length], 1 + v % 5, front: front);
     case VehicleKind.lam:
       return makeSprite(80, 96, 1.75, 160, (c) => _lam(c, v, front));
     case VehicleKind.car:

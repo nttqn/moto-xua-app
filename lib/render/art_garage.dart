@@ -22,7 +22,7 @@ class BikeSidePainter extends CustomPainter {
   static const double _w = 200;
   static const double _h = 125;
 
-  // Axles, shared by all four so they line up when swiping.
+  // Axles, shared by every bike so they line up when swiping.
   static const double _rx = 48, _fx = 156, _ay = 92;
 
   @override
@@ -41,6 +41,12 @@ class BikeSidePainter extends CustomPainter {
         _dream(canvas);
       case BikeId.x67:
         _x67(canvas);
+      case BikeId.simson:
+        _simson(canvas);
+      case BikeId.dd:
+        _dd(canvas);
+      case BikeId.sport:
+        _sport(canvas);
     }
     canvas.restore();
   }
@@ -415,6 +421,252 @@ class BikeSidePainter extends CustomPainter {
     c.oval(139, 30, 3.6, 3.2, _chromeDark);
     c.stroke(142, 50, 148, 52, const Color(0xFFF0A63A), 2.6);
     _bars(c, 139, 33, low: true);
+  }
+
+  /// Three-spoke cast wheel, with a brake disc if [disc].
+  static void _castWheel(Canvas c, double cx, {bool disc = false}) {
+    c.oval(cx, _ay, 24, 24, _tyre);
+    c.oval(cx, _ay, 18.5, 18.5, const Color(0xFFE4E7E9));
+    c.oval(cx, _ay, 15.5, 15.5, const Color(0xFF3A3D42));
+    for (var k = 0; k < 3; k++) {
+      final a = -math.pi / 2 + k * 2 * math.pi / 3;
+      c.stroke(cx, _ay, cx + math.cos(a) * 16, _ay + math.sin(a) * 16,
+          const Color(0xFFE4E7E9), 4.6);
+    }
+    if (disc) {
+      c.oval(cx, _ay, 10.5, 10.5, _chromeDark);
+      c.oval(cx, _ay, 7, 7, const Color(0xFFE4E7E9));
+      for (var k = 0; k < 8; k++) {
+        final a = k * math.pi / 4;
+        c.oval(cx + math.cos(a) * 8.8, _ay + math.sin(a) * 8.8, 0.8, 0.8,
+            _black);
+      }
+    }
+    c.oval(cx, _ay, 4.4, 4.4, _chromeDark);
+    c.oval(cx, _ay, 1.8, 1.8, _black);
+  }
+
+  /// Simson S51: tube spine, long tank, leaning two-stroke pot, cigar pipe.
+  static void _simson(Canvas c) {
+    const body = Color(0xFF2E7D4F);
+    const grey = Color(0xFFB4BABD);
+    const frame = Color(0xFF2C2D31);
+    _wheel(c, _rx);
+    _wheel(c, _fx);
+    _guard(c, _fx, 198, 138, grey, width: 4);
+    _guard(c, _rx, 172, 128, grey, width: 4);
+    // Fork with rubber gaiters.
+    c.stroke(_fx, _ay, 142, 36, _chrome, 4.2);
+    c.stroke(150.5, 68, 142.5, 38, _black, 6);
+    for (var k = 1; k < 7; k++) {
+      final x = 150.5 - k * 1.15, y = 68 - k * 4.3;
+      c.stroke(x - 2.8, y - 0.8, x + 2.8, y + 0.8, const Color(0xFF4A4D52), 0.9);
+    }
+    // Frame tubes and swingarm.
+    c.stroke(141, 46, 98, 62, frame, 5);
+    c.stroke(98, 62, 58, 60, frame, 4);
+    c.stroke(98, 62, 90, 90, frame, 4);
+    c.stroke(90, 91, _rx, _ay, frame, 3.4);
+    c.stroke(54, 85, 86, 83, _black, 3.4);
+    // Crankcase, then the finned cylinder leaning forward.
+    c.box(82, 80, 28, 16, _engine, 7);
+    c.oval(93, 88, 5.5, 5.5, shade(_engine, 0.18));
+    for (var k = 0; k < 6; k++) {
+      final x = 106.0 + k * 2.3, y = 79.0 - k * 3.3;
+      c.stroke(x - 6.5, y - 4.2, x + 6.5, y + 4.2, k == 5 ? _chromeDark : _engine,
+          k == 5 ? 3.4 : 2.2);
+    }
+    c.box(88, 68, 12, 9, frame, 2);
+    c.stroke(86, 93, 78, 105, _chromeDark, 1.6);
+    c.stroke(96, 98, 104, 98, _black, 2.6);
+    // Down-pipe and the long cigar silencer.
+    c.stroke(114, 76, 116, 94, _chromeDark, 3);
+    c.stroke(116, 95, 104, 100, _chromeDark, 3);
+    c.stroke(104, 100, 26, 97, _chrome, 7.4);
+    c.stroke(98, 98.4, 30, 95.6, const Color(0xFFEFF2F4), 1.4);
+    c.oval(24.6, 97, 1.8, 2.6, _black);
+    _shock(c, 60, 60, 50, 88, bare: true);
+    // Side cover under the seat.
+    _shape(c, frame, (p) {
+      p.moveTo(62, 60);
+      p.lineTo(96, 61);
+      p.lineTo(90, 79);
+      p.lineTo(70, 76);
+    });
+    c.oval(80, 68, 3, 3, _chromeDark);
+    // Long slab tank.
+    _shape(c, body, (p) {
+      p.moveTo(93, 54);
+      p.quadraticBezierTo(93, 39, 108, 38);
+      p.lineTo(132, 39);
+      p.quadraticBezierTo(142, 41, 139, 50);
+      p.quadraticBezierTo(134, 58, 116, 59);
+      p.lineTo(97, 59);
+    });
+    c.box(104, 45, 26, 5.4, const Color(0xFFF2EFE6), 2.6);
+    c.oval(114, 38.6, 3, 1.6, _chrome);
+    // Flat bench seat.
+    _shape(c, _black, (p) {
+      p.moveTo(40, 55);
+      p.quadraticBezierTo(38, 45, 48, 45);
+      p.lineTo(94, 47);
+      p.lineTo(95, 56);
+      p.quadraticBezierTo(66, 60, 40, 55);
+    });
+    c.stroke(44, 53.6, 92, 54.4, _chromeDark, 0.9);
+    // Carrier and tail lamp.
+    c.stroke(16, 50, 42, 50, _chrome, 1.8);
+    c.stroke(16, 50, 14, 55, _chrome, 1.5);
+    c.stroke(28, 50, 30, 58, _chrome, 1.4);
+    c.box(17, 58, 7, 7, grey, 3);
+    c.oval(18.6, 61.5, 3, 3, _red);
+    _plate(c, 18, 68);
+    // Round lamp in a black shell, big round winkers.
+    c.oval(148, 41, 9.4, 9.8, _black);
+    c.oval(151.4, 41, 6.4, 8, _chrome);
+    c.oval(152.4, 41, 5, 6.8, _lens);
+    c.oval(138, 30, 4, 3.4, _black);
+    c.stroke(140, 52, 134, 54, _black, 1.2);
+    c.oval(133, 54, 3.2, 3.2, const Color(0xFFF0A63A));
+    c.oval(34, 60, 3, 3, const Color(0xFFF0A63A));
+    _bars(c, 139, 31);
+  }
+
+  /// Cub 70 "DD": the squared-off red one.
+  static void _dd(Canvas c) {
+    const body = Color(0xFFC8242B);
+    const cream = Color(0xFFF2EFE6);
+    c.stroke(_fx, _ay, 139, 40, _chromeDark, 4);
+    _wheel(c, _rx);
+    _wheel(c, _fx);
+    _guard(c, _fx, 194, 152, body);
+    _guard(c, _rx, 176, 116, body);
+    c.stroke(_fx - 2, _ay - 2, 141, 46, body, 6.4);
+    c.stroke(_rx, _ay + 1, 84, _ay - 1, cream, 10);
+    c.stroke(_rx, _ay + 1, 84, _ay - 1, shade(cream, -0.12), 1);
+    _flatEngine(c);
+    c.stroke(100, 98, 74, 101, _chromeDark, 2.4);
+    c.stroke(76, 101, 26, 101, _chrome, 6.8);
+    c.oval(25, 101, 1.6, 2.3, _black);
+    _shock(c, 54, 62, 49, 88);
+    // Squared tail.
+    _shape(c, body, (p) {
+      p.moveTo(66, 56);
+      p.lineTo(24, 52);
+      p.lineTo(18, 55);
+      p.lineTo(18, 64);
+      p.lineTo(42, 69);
+      p.lineTo(64, 73);
+    });
+    _underbone(c, body);
+    c.box(66, 61, 22, 11, cream, 2);
+    c.box(72, 64.5, 10, 4, body, 1);
+    c.box(14.5, 55, 5.5, 9, _red, 1.2);
+    c.box(14.5, 60.5, 5.5, 3.5, const Color(0xFFF0A63A), 1);
+    c.box(30, 58, 6, 4.4, const Color(0xFFF0A63A), 1.2);
+    _plate(c, 18, 66);
+    c.stroke(20, 46, 52, 46, _chrome, 1.8);
+    c.stroke(20, 46, 18, 51, _chrome, 1.5);
+    c.stroke(34, 46, 34, 52, _chrome, 1.4);
+    c.stroke(48, 46, 48, 52, _chrome, 1.4);
+    // Long dual seat.
+    _shape(c, _black, (p) {
+      p.moveTo(52, 56);
+      p.quadraticBezierTo(52, 45, 62, 45);
+      p.lineTo(106, 46);
+      p.quadraticBezierTo(113, 47, 111, 55);
+      p.quadraticBezierTo(82, 60, 52, 56);
+    });
+    c.stroke(56, 54, 109, 53, cream, 0.9);
+    // Big angular leg shield.
+    _shape(c, cream, (p) {
+      p.moveTo(126, 36);
+      p.lineTo(140, 40);
+      p.lineTo(137, 62);
+      p.lineTo(130, 92);
+      p.lineTo(116, 94);
+      p.lineTo(122, 66);
+      p.lineTo(119, 44);
+    });
+    c.stroke(123, 46, 126, 88, shade(cream, -0.14), 1);
+    // Boxy nacelle, square lamp, chunky winker.
+    c.box(124, 24, 28, 18, body, 3);
+    c.box(144, 26.5, 9.5, 13, _chrome, 1.5);
+    c.box(146, 28, 6.5, 10, _lens, 1);
+    c.box(136, 42, 7, 4.4, const Color(0xFFF0A63A), 1.2);
+    _bars(c, 134, 25);
+  }
+
+  /// Suzuki RGV 120 "xi-po": two-stroke sports underbone with a fat pipe.
+  static void _sport(Canvas c) {
+    const body = Color(0xFF1C3F94);
+    const white = Color(0xFFF2F4F6);
+    const stripe = Color(0xFFE23A2E);
+    c.stroke(_fx, _ay, 141, 40, const Color(0xFF3A3D42), 4.8);
+    _castWheel(c, _rx);
+    _castWheel(c, _fx, disc: true);
+    c.box(148, 78, 5, 9, stripe, 1.5);
+    _guard(c, _fx, 208, 112, body);
+    _guard(c, _rx, 205, 70, _black, width: 4);
+    c.stroke(_fx - 2, _ay - 4, 142, 48, const Color(0xFF3A3D42), 5);
+    // Box swingarm.
+    c.stroke(88, 90, _rx, _ay, const Color(0xFFD5D9DC), 4.6);
+    _flatEngine(c, cases: const Color(0xFF3A3D42));
+    // Expansion chamber: thin header, fat belly, taper, alloy can.
+    c.stroke(106, 96, 94, 101, _chromeDark, 3);
+    c.stroke(94, 101, 70, 100, _chrome, 10);
+    c.stroke(70, 100, 50, 92, _chrome, 6.4);
+    c.stroke(50, 92, 20, 76, const Color(0xFFDDE1E4), 7.6);
+    c.oval(19, 75.4, 1.8, 2.6, _black);
+    _shock(c, 58, 60, 49, 88);
+    // Long tail kicked high.
+    _shape(c, body, (p) {
+      p.moveTo(68, 58);
+      p.lineTo(14, 34);
+      p.lineTo(10, 39);
+      p.lineTo(38, 62);
+      p.lineTo(64, 72);
+    });
+    c.poly([10, 35, 18, 37.4, 16, 42, 9, 39.4], _red);
+    c.poly([64, 62, 24, 43, 26, 47.6, 62, 67], white);
+    c.poly([60, 68, 34, 54, 36, 57.4, 60, 71], stripe);
+    _underbone(c, body);
+    c.poly([120, 60, 96, 76, 102, 79, 123, 65], white);
+    c.poly([121, 67, 104, 79, 107, 80.6, 122, 70], stripe);
+    _plate(c, 22, 54);
+    // Stepped racing seat.
+    _shape(c, _black, (p) {
+      p.moveTo(40, 49);
+      p.quadraticBezierTo(42, 39, 54, 41);
+      p.lineTo(76, 47);
+      p.lineTo(108, 47);
+      p.quadraticBezierTo(114, 48, 112, 55);
+      p.quadraticBezierTo(84, 61, 62, 58);
+    });
+    // Slim front cover.
+    _shape(c, body, (p) {
+      p.moveTo(130, 40);
+      p.quadraticBezierTo(142, 44, 138, 58);
+      p.lineTo(127, 90);
+      p.lineTo(118, 92);
+      p.quadraticBezierTo(126, 68, 122, 50);
+      p.quadraticBezierTo(122, 42, 130, 40);
+    });
+    c.poly([134, 50, 138, 54, 130, 80, 127, 78], white);
+    c.poly([124, 52, 127, 52, 122, 88, 119.6, 89], _black);
+    // Bar fairing with a smoked screen.
+    c.poly([134, 22, 142, 11, 150, 20, 143, 27], const Color(0xAA2A2F38));
+    _shape(c, body, (p) {
+      p.moveTo(122, 31);
+      p.lineTo(142, 21);
+      p.lineTo(157, 32);
+      p.lineTo(149, 44);
+      p.lineTo(127, 43);
+    });
+    c.poly([144, 26, 155, 32.4, 149, 41, 141, 38], _lens);
+    c.poly([124, 33, 138, 26, 139, 29, 126, 36], white);
+    c.poly([130, 37, 138, 36, 138, 40, 131, 41], const Color(0xFFF0A63A));
+    _bars(c, 134, 28, low: true);
   }
 }
 

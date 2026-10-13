@@ -611,8 +611,11 @@ class World {
 
   /// Which lane a rider at ([atZ], [atX]) doing [atSpeed] should aim for,
   /// and a speed cap if there is no way round what is in front.
-  ({int lane, double? limit}) planLane(double atZ, double atX, double atSpeed) {
-    final look = 16 + atSpeed * 0.9;
+  ///
+  /// [foresight] stretches how far ahead the rider looks.
+  ({int lane, double? limit}) planLane(double atZ, double atX, double atSpeed,
+      {double foresight = 1}) {
+    final look = (16 + atSpeed * 0.9) * foresight;
     final mine = laneOf(atX);
 
     double? blockedBy(int lane) {
@@ -706,6 +709,16 @@ class Autopilot {
   Controls drive(World w) {
     final plan = w.planLane(w.z, w.x, w.speed);
     var want = laneX(plan.lane);
+    // Anything the bike would actually touch within the next second or so
+    // means brakes now, whatever the lane plan says.
+    var danger = false;
+    for (final v in w.traffic) {
+      final gap = v.z - w.z - v.spec.length / 2 - 0.9;
+      if (gap < 0 || gap > 80) continue;
+      if ((v.x - w.x).abs() > (v.spec.width + kRiderWidth) / 2 + 0.04) continue;
+      final closing = w.speed - v.speed * v.dir;
+      if (closing > 0 && gap / closing < 1.1) danger = true;
+    }
     // Pull out from behind a rival instead of sitting on their wheel.
     for (final r in w.racers) {
       final gap = r.z - w.z;
@@ -715,7 +728,11 @@ class Autopilot {
       }
     }
     final steer = ((want - w.x) * 5).clamp(-1.0, 1.0).toDouble();
-    final brake = plan.limit != null && w.speed > plan.limit! * caution;
+    // Running wide in a bend: ease off before the kerb, as a rider would.
+    final wide = w.x.abs() > 0.9 && w.speed > w.stats.topSpeed * 0.6;
+    final brake = wide ||
+        danger ||
+        (plan.limit != null && w.speed > plan.limit! * caution);
     return Controls(steer: steer, brake: brake);
   }
 }

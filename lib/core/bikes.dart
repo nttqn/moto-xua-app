@@ -11,7 +11,8 @@ double worldSpeed(double kmh) => kmh / 3.6 * kSpeedScale;
 /// The km/h figure shown for a world speed.
 double shownKmh(double world) => world * 3.6 / kSpeedScale;
 
-enum BikeId { cub, wave, dream, x67 }
+/// In showroom order, slowest first.
+enum BikeId { cub, dd, wave, simson, dream, sport, x67 }
 
 enum Part { engine, exhaust, tyres }
 
@@ -67,11 +68,23 @@ const List<BikeSpec> bikes = [
     upgradeBase: 300,
   ),
   BikeSpec(
+    id: BikeId.dd,
+    name: 'Đê đê đỏ',
+    nick: 'Cub 70',
+    blurb: 'Đèn vuông, yếm to, đỏ chót cả xóm biết. Lành như Cub mà khoẻ hơn một chút.',
+    price: 2500,
+    topKmh: 80,
+    accel: 0.36,
+    handling: 1.72,
+    grip: 1.12,
+    upgradeBase: 450,
+  ),
+  BikeSpec(
     id: BikeId.wave,
     name: 'Wave Tàu',
     nick: 'Xe Tàu',
     blurb: 'Rẻ, bốc, kêu to. Vào cua hơi văng nhưng đề ba thì khỏi chê.',
-    price: 4000,
+    price: 5000,
     topKmh: 92,
     accel: 0.46,
     handling: 1.60,
@@ -79,11 +92,23 @@ const List<BikeSpec> bikes = [
     upgradeBase: 600,
   ),
   BikeSpec(
+    id: BikeId.simson,
+    name: 'Xe Kích',
+    nick: 'Simson S51',
+    blurb: 'Hàng Đông Đức xách tay. Hai thì khói mù, tiếng nổ giòn, kéo khoẻ đường dài.',
+    price: 9000,
+    topKmh: 100,
+    accel: 0.44,
+    handling: 1.55,
+    grip: 1.00,
+    upgradeBase: 850,
+  ),
+  BikeSpec(
     id: BikeId.dream,
     name: 'Dream Thái',
     nick: 'Giấc mơ',
     blurb: 'Cả gia tài một thời. Êm, đầm, chạy đường nào cũng ngon.',
-    price: 12000,
+    price: 14000,
     topKmh: 110,
     accel: 0.42,
     handling: 1.70,
@@ -91,11 +116,23 @@ const List<BikeSpec> bikes = [
     upgradeBase: 1100,
   ),
   BikeSpec(
+    id: BikeId.sport,
+    name: 'Su xì-po',
+    nick: 'RGV 120',
+    blurb: 'Hai thì, pô bầu, vọt như tên bắn. Nhẹ đuôi nên vào cua phải khéo.',
+    price: 21000,
+    topKmh: 122,
+    accel: 0.54,
+    handling: 1.68,
+    grip: 0.90,
+    upgradeBase: 1450,
+  ),
+  BikeSpec(
     id: BikeId.x67,
     name: 'Xe 67',
     nick: 'Huyền thoại',
     blurb: 'Máy đứng, pô nổ giòn. Nhanh nhất hội nhưng phải ghì mới chịu cua.',
-    price: 28000,
+    price: 30000,
     topKmh: 132,
     accel: 0.50,
     handling: 1.50,

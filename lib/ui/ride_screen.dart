@@ -88,8 +88,11 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
   /// A big single thumps lower than a Cub.
   static const _voices = {
     BikeId.cub: 1.0,
+    BikeId.dd: 0.97,
     BikeId.wave: 1.12,
+    BikeId.simson: 1.2,
     BikeId.dream: 0.94,
+    BikeId.sport: 1.25,
     BikeId.x67: 0.82,
   };
 
