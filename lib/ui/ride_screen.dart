@@ -54,6 +54,7 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
   final Map<int, int> _pointers = {};
   final Set<LogicalKeyboardKey> _keys = {};
   bool _brakeTouch = false;
+  bool _boostTouch = false;
   final FocusNode _focus = FocusNode();
 
   @override
@@ -79,6 +80,7 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
     _pointers.clear();
     _keys.clear();
     _brakeTouch = false;
+    _boostTouch = false;
     _lastCount = 4;
     SoundService.instance.startEngine();
   }
@@ -107,7 +109,8 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
     }
     SoundService.instance.revEngine(
       w.fallen ? 0 : w.speed / w.stats.topSpeed,
-      voice: _voices[Progress.instance.selected]!,
+      // Flat out, the engine screams a little higher than it should.
+      voice: _voices[Progress.instance.selected]! * (w.boosting ? 1.12 : 1),
     );
   }
 
@@ -144,6 +147,11 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
       case WorldEvent.fail:
         sound.play(Sfx.fail);
         sound.stopEngine();
+      case WorldEvent.boostReady:
+        sound.play(Sfx.beep, volume: 0.6);
+      case WorldEvent.boost:
+        sound.play(Sfx.boost);
+        HapticFeedback.mediumImpact();
       case WorldEvent.overtake:
         break;
     }
@@ -163,8 +171,11 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
       case WorldEvent.fail:
         // Let the bike roll on for a beat before the board comes up.
         _resultTimer = Timer(const Duration(milliseconds: 1400), _showResult);
+      case WorldEvent.boost:
+        _say('VẶN HẾT GA!');
       case WorldEvent.bump:
       case WorldEvent.scrape:
+      case WorldEvent.boostReady:
       case WorldEvent.overtake:
         break;
     }
@@ -293,6 +304,11 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
         _keys.contains(LogicalKeyboardKey.arrowDown) ||
         _keys.contains(LogicalKeyboardKey.space) ||
         _keys.contains(LogicalKeyboardKey.keyS);
+    _game.boostInput = _boostTouch ||
+        _keys.contains(LogicalKeyboardKey.arrowUp) ||
+        _keys.contains(LogicalKeyboardKey.keyW) ||
+        _keys.contains(LogicalKeyboardKey.shiftLeft) ||
+        _keys.contains(LogicalKeyboardKey.shiftRight);
   }
 
   /// Registered with [HardwareKeyboard] rather than a Focus widget: the
@@ -430,7 +446,91 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               hint(Icons.arrow_left_rounded),
-              Listener(
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _boostButton(),
+                  const SizedBox(height: 8),
+                  _brakeButton(),
+                ],
+              ),
+              hint(Icons.arrow_right_rounded),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Doubles as the gauge: it fills as the rider takes risks, and can be
+  /// pressed once it is full.
+  Widget _boostButton() {
+    void set(bool down) {
+      _boostTouch = down;
+      _syncInput();
+    }
+
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (_) => set(true),
+      onPointerUp: (_) => set(false),
+      onPointerCancel: (_) => set(false),
+      child: ValueListenableBuilder<int>(
+        valueListenable: _game.hudTick,
+        builder: (context, _, _) {
+          final w = _world;
+          final ready = w.boostCharge >= 1 && !w.boosting;
+          final fill = w.boostCharge.clamp(0, 1).toDouble();
+          return Container(
+            width: 112,
+            height: 52,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: ready || w.boosting
+                    ? signYellow
+                    : Colors.white.withValues(alpha: 0.45),
+                width: ready ? 3 : 2,
+              ),
+            ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: fill,
+                    heightFactor: 1,
+                    child: ColoredBox(
+                      color: w.boosting
+                          ? const Color(0xFFFF7A1E)
+                          : ready
+                              ? signYellow
+                              : signYellow.withValues(alpha: 0.45),
+                    ),
+                  ),
+                ),
+                Center(
+                  child: Text(
+                    'VẶN HẾT GA',
+                    style: signText.copyWith(
+                      fontSize: 12.5,
+                      color: ready ? ink : const Color(0xFFFFF3C4),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _brakeButton() {
+    return Listener(
                 behavior: HitTestBehavior.opaque,
                 onPointerDown: (_) {
                   _brakeTouch = true;
@@ -461,13 +561,7 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
-              ),
-              hint(Icons.arrow_right_rounded),
-            ],
-          ),
-        ),
-      ),
-    );
+              );
   }
 
   Widget _board({required List<Widget> children}) {
@@ -503,6 +597,18 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
       SignButton(label: 'CHẠY TIẾP', onTap: _togglePause, color: signTeal),
       const SizedBox(height: 10),
       SignButton(label: 'CHẠY LẠI', onTap: _restart, color: signBlue),
+      const SizedBox(height: 10),
+      ValueListenableBuilder<bool>(
+        valueListenable: SoundService.instance.enabled,
+        builder: (context, on, _) => SignButton(
+          label: on ? 'ÂM THANH: BẬT' : 'ÂM THANH: TẮT',
+          icon: on ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+          color: signYellow,
+          textColor: ink,
+          fontSize: 17,
+          onTap: SoundService.instance.toggle,
+        ),
+      ),
       const SizedBox(height: 10),
       SignButton(
         label: 'THOÁT',

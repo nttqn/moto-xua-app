@@ -132,6 +132,59 @@ void main() {
     }
   });
 
+  test('a full gauge buys one burst past top speed; a crash spills it', () {
+    const cfg = RunConfig(mode: RunMode.mission, theme: ThemeId.lua, seed: 1,
+        distanceKm: 50, density: 0.0001, curviness: 0, hilliness: 0);
+    final stats = statsFor(bikes.first);
+    final w = World(cfg, stats)..traffic.clear();
+    w.speed = stats.topSpeed;
+
+    // An empty gauge does nothing.
+    w.update(_dt, const Controls(boost: true));
+    expect(w.boosting, isFalse);
+
+    w.boostCharge = 1;
+    w.update(_dt, const Controls(boost: true));
+    expect(w.boosting, isTrue);
+    expect(w.events, contains(WorldEvent.boost));
+    var fastest = 0.0;
+    for (var i = 0; i < 60 * 2; i++) {
+      w.update(_dt, const Controls());
+      if (w.speed > fastest) fastest = w.speed;
+    }
+    expect(fastest, greaterThan(stats.topSpeed * 1.15));
+    expect(fastest, lessThanOrEqualTo(stats.topSpeed * kBoostTop + 1e-6));
+
+    // It runs out, and the bike settles back to its own top speed.
+    for (var i = 0; i < 60 * 8; i++) {
+      w.update(_dt, const Controls());
+    }
+    expect(w.boosting, isFalse);
+    expect(w.boostCharge, 0);
+    expect(w.speedKmh, closeTo(bikes.first.topKmh, 0.5));
+
+    // Close passes fill it; a fall empties it.
+    final bus = Vehicle(VehicleKind.bus, 2, w.z + 60, worldSpeed(40), 1, 0);
+    w.traffic.add(bus);
+    for (var i = 0; i < 60 * 5; i++) {
+      w.x = bus.x - (bus.spec.width + kRiderWidth) / 2 - 0.06;
+      w.update(_dt, const Controls());
+    }
+    expect(w.nearMisses, 1);
+    expect(w.boostCharge, greaterThan(0.15));
+    w.traffic.add(Vehicle(VehicleKind.bus, 1, w.z + 40, worldSpeed(40), -1, 0));
+    for (var i = 0; i < 60 * 2; i++) {
+      w.x = laneX(1);
+      w.update(_dt, const Controls());
+    }
+    expect(w.crashes, 1);
+    expect(w.boostCharge, 0);
+
+    // The throttle upgrade makes a burst last longer.
+    expect(statsAtLevel(bikes.first, maxPartLevel).boostTime,
+        greaterThan(stats.boostTime));
+  });
+
   test('an endless run ends when the lives are gone', () {
     final cfg = endlessConfig(ThemeId.saigon, twoWay: true, seed: 4);
     final w = World(cfg, statsFor(bikes.first));

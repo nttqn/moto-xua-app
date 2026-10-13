@@ -84,6 +84,10 @@ class Racer {
   double steer = 0;
   int lane;
   double? finishTime;
+
+  /// Seconds of flat-out throttle left, and until the next burst.
+  double boostTimer = 0;
+  double boostWait = 6;
 }
 
 enum RunMode { endless, race, mission }
@@ -139,16 +143,21 @@ class RunConfig {
 }
 
 class Controls {
-  const Controls({this.steer = 0, this.brake = false});
+  const Controls({this.steer = 0, this.brake = false, this.boost = false});
 
   /// -1 full left .. 1 full right.
   final double steer;
   final bool brake;
+
+  /// Twist the throttle to the stop, if the gauge is full.
+  final bool boost;
 }
 
 enum Phase { countdown, running, finished }
 
-enum WorldEvent { go, crash, bump, scrape, nearMiss, overtake, finish, fail }
+enum WorldEvent {
+  go, crash, bump, scrape, nearMiss, overtake, boostReady, boost, finish, fail,
+}
 
 /// The kerb runs from here ...
 const double kKerbInner = 0.95;
@@ -291,6 +300,14 @@ class World {
   /// The roadside object of the last crash, or null if it was a vehicle.
   Prop? hitProp;
 
+  /// The throttle gauge, 0..1. Filled by close passes, overtakes and
+  /// riding against the traffic; a full one buys one burst.
+  double boostCharge = 0;
+
+  /// Seconds of the current burst left.
+  double boostTimer = 0;
+  bool get boosting => boostTimer > 0;
+
   /// Wheels on the kerb right now.
   bool scraping = false;
 
@@ -368,10 +385,24 @@ class World {
     }
     steer += (c.steer.clamp(-1, 1) - steer) * math.min(1, dt * 9);
     final top = stats.topSpeed;
+    if (c.boost && boostCharge >= 1 && !boosting) {
+      boostTimer = stats.boostTime;
+      events.add(WorldEvent.boost);
+    }
+    if (boosting) {
+      boostTimer = math.max(0, boostTimer - dt);
+      boostCharge = boostTimer / stats.boostTime;
+    }
+    final limit = boosting ? top * kBoostTop : top;
     if (c.brake) {
       speed -= worldSpeed(70) * dt;
+    } else if (boosting) {
+      speed += stats.accel * 2.4 * (limit * 1.03 - speed) * dt;
+    } else if (speed > top) {
+      // Burst over: the extra speed bleeds away rather than vanishing.
+      speed -= worldSpeed(22) * dt;
     } else {
-      speed += stats.accel * (top * 1.03 - speed) * dt;
+      speed = math.min(top, speed + stats.accel * (top * 1.03 - speed) * dt);
     }
     final edge = x.abs();
     offRoad = edge > kKerbOuter;
@@ -388,16 +419,20 @@ class World {
     } else {
       _scrapeCooldown = 0;
     }
-    speed = speed.clamp(0, top).toDouble();
+    if (boosting) speed = math.min(speed, limit);
+    speed = math.max(0, speed);
 
-    final sp = speed / top;
+    final sp = math.min(1.0, speed / top);
     final curve = track.segmentAt(z).curve;
-    x += steer * stats.handling * (0.3 + 0.7 * sp) * dt;
+    // Flat out, the bars go heavy.
+    final grip = boosting ? 0.85 : 1.0;
+    x += steer * stats.handling * grip * (0.3 + 0.7 * sp) * dt;
     x -= curve * sp * sp * (0.13 / stats.grip) * dt;
     x = x.clamp(-kVergeLimit, kVergeLimit).toDouble();
     z += speed * dt;
 
     if (inOncomingLane && speed > top * 0.6) {
+      _charge(0.045 * dt);
       // Riding into the oncoming stream pays, a little, all the time.
       _oncomingCarry += speed * dt / kSpeedScale;
       if (_oncomingCarry >= 10) {
@@ -408,6 +443,12 @@ class World {
   }
 
   double _oncomingCarry = 0;
+
+  void _charge(double amount) {
+    if (boosting || boostCharge >= 1) return;
+    boostCharge = math.min(1, boostCharge + amount);
+    if (boostCharge >= 1) events.add(WorldEvent.boostReady);
+  }
 
   void _moveTraffic(double dt) {
     for (final v in traffic) {
@@ -486,6 +527,7 @@ class World {
         v.counted = true;
         if (!v.oncoming) {
           overtakes++;
+          _charge(0.03);
           events.add(WorldEvent.overtake);
         }
         final gap = dx.abs() - wide;
@@ -495,6 +537,7 @@ class World {
           bestCombo = math.max(bestCombo, combo);
           comboTimer = 3.5;
           bonus += (v.oncoming ? 40 : 20) * math.min(combo, 10);
+          _charge(v.oncoming ? 0.3 : 0.2);
           events.add(WorldEvent.nearMiss);
         }
       }
@@ -559,6 +602,9 @@ class World {
     speed = 0;
     crashTimer = 1.8;
     invulnerable = 3.3;
+    // A fall spills whatever was saved up.
+    boostTimer = 0;
+    boostCharge = 0;
     if (config.mode == RunMode.endless) lives--;
     events.add(WorldEvent.crash);
   }
@@ -579,6 +625,18 @@ class World {
       final plan = planLane(r.z, r.x, r.speed);
       r.lane = plan.lane;
       if (plan.limit != null) target = math.min(target, plan.limit!);
+
+      // Rivals wind it open now and then on a clear straight.
+      if (r.boostTimer > 0) {
+        r.boostTimer -= dt;
+        target *= 1.12;
+      } else if (phase == Phase.running) {
+        r.boostWait -= dt;
+        if (r.boostWait <= 0 && plan.limit == null && curve < 0.6) {
+          r.boostTimer = 2.5;
+          r.boostWait = 14 + _rng.nextDouble() * 12;
+        }
+      }
 
       r.speed += r.stats.accel * 1.15 * (target - r.speed) * dt;
       if (r.speed > target + 4) r.speed -= worldSpeed(50) * dt;
@@ -730,9 +788,13 @@ class Autopilot {
     final steer = ((want - w.x) * 5).clamp(-1.0, 1.0).toDouble();
     // Running wide in a bend: ease off before the kerb, as a rider would.
     final wide = w.x.abs() > 0.9 && w.speed > w.stats.topSpeed * 0.6;
+    final boost = w.boostCharge >= 1 &&
+        !danger &&
+        plan.limit == null &&
+        w.track.segmentAt(w.z).curve.abs() < 0.6;
     final brake = wide ||
         danger ||
         (plan.limit != null && w.speed > plan.limit! * caution);
-    return Controls(steer: steer, brake: brake);
+    return Controls(steer: steer, brake: brake, boost: boost && !brake);
   }
 }

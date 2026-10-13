@@ -136,7 +136,8 @@ class SpriteBank {
 
 class _Drawable {
   _Drawable(this.sprite, this.sx, this.sy, this.scale, this.depth, this.clip,
-      {this.lean = 0, this.fallen = false, this.ghost = false});
+      {this.lean = 0, this.fallen = false, this.ghost = false,
+      this.flame = false});
   final Sprite sprite;
   final double sx;
   final double sy;
@@ -146,6 +147,9 @@ class _Drawable {
   final double lean;
   final bool fallen;
   final bool ghost;
+
+  /// Throttle wide open: fire out of the pipe.
+  final bool flame;
 }
 
 /// Paints the classic pseudo-3D road: segments projected one by one,
@@ -284,7 +288,7 @@ class RoadRenderer {
 
     void place(Sprite sprite, double z, double xUnits,
         {double lean = 0, bool fallen = false, bool ghost = false,
-        double boost = spriteBoost}) {
+        bool flame = false, double boost = spriteBoost}) {
       final rel = z - camZ;
       // Anything between the camera and the player would fill the screen;
       // it fades out as it drops behind the back wheel.
@@ -301,7 +305,7 @@ class RoadRenderer {
       final sx = half + scale * (xUnits * kRoadHalf + off - camX) * half;
       final sy = horizon - scale * (y - camY) * half;
       items.add(_Drawable(sprite, sx, sy, scale * half * boost, rel, _clip[i],
-          lean: lean, fallen: fallen, ghost: ghost));
+          lean: lean, fallen: fallen, ghost: ghost, flame: flame));
     }
 
     for (var i = 0; i < drawSegments; i++) {
@@ -318,11 +322,12 @@ class RoadRenderer {
     }
     for (final r in w.racers) {
       place(bank.rider(r.setup.bike, 1 + r.colorIndex % 5), r.z, r.x,
-          lean: r.steer * 0.22);
+          lean: r.steer * 0.22, flame: r.boostTimer > 0);
     }
     final blink = w.invulnerable > 0 && !w.fallen && (clock * 10).floor().isOdd;
     place(bank.rider(playerBike, 0), w.z, w.x,
-        lean: w.steer * 0.26, fallen: w.fallen, ghost: blink);
+        lean: w.steer * 0.26, fallen: w.fallen, ghost: blink,
+        flame: w.boosting);
     final me = items.isEmpty ? null : items.last;
 
     items.sort((a, b) => b.depth.compareTo(a.depth));
@@ -356,11 +361,16 @@ class RoadRenderer {
             img, src, Rect.fromLTWH(d.sx - wpx / 2, top, wpx, hpx), paint);
       }
       if (needClip || transformed) canvas.restore();
+      if (d.flame && !d.fallen && d.sy <= d.clip) {
+        _flame(canvas, d.sx + wpx * 0.19, d.sy - wpx * 0.36, wpx, clock);
+      }
     }
 
     if (me != null && w.phase == Phase.running && !w.fallen) {
       _roadsideFx(canvas, w, me, pal, clock);
     }
+
+    if (w.boosting) _speedLines(canvas, size, horizon, clock);
 
     if (w.config.dusk) {
       canvas.drawRect(
@@ -372,6 +382,46 @@ class RoadRenderer {
             const [Color(0x333B2A5E), Color(0x22E0703A), Color(0x44201838)],
             const [0, 0.4, 1],
           ),
+      );
+    }
+  }
+
+  /// A flickering tongue of fire at a tail pipe; [unit] is the bike's
+  /// width on screen.
+  void _flame(Canvas canvas, double x, double y, double unit, double clock) {
+    final flick = 0.8 + 0.2 * math.sin(clock * 47) + 0.12 * math.sin(clock * 83);
+    void tongue(double w, double h, Color c) {
+      canvas.drawOval(
+        Rect.fromLTWH(x - unit * w / 2, y - unit * 0.02, unit * w,
+            unit * h * flick),
+        Paint()..color = c,
+      );
+    }
+
+    tongue(0.20, 0.52, const Color(0xCCFF5A1E));
+    tongue(0.13, 0.38, const Color(0xEEFFB52E));
+    tongue(0.07, 0.22, const Color(0xFFFFF6C8));
+  }
+
+  /// Streaks rushing out from the vanishing point while flat out.
+  void _speedLines(Canvas canvas, Size size, double horizon, double clock) {
+    final centre = Offset(size.width / 2, horizon);
+    final reach = size.height * 0.75;
+    final paint = Paint()
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 3;
+    for (var k = 0; k < 40; k++) {
+      final phase = clock * 2.6 + k * 0.618;
+      final t = phase - phase.floorToDouble();
+      final a = _hash(k * 13 + phase.floor() * 7) * math.pi * 2;
+      // Keep them off the road ahead, where the rider is looking.
+      if (math.sin(a) > 0.2 && math.cos(a).abs() < 0.55) continue;
+      final from = 0.35 + t * 0.5, to = from + 0.12 + 0.1 * t;
+      paint.color = const Color(0xFFFFFFFF).withValues(alpha: 0.75 * (1 - t));
+      canvas.drawLine(
+        centre + Offset(math.cos(a), math.sin(a)) * (reach * from),
+        centre + Offset(math.cos(a), math.sin(a)) * (reach * to),
+        paint,
       );
     }
   }

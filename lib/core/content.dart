@@ -87,7 +87,7 @@ const List<Stage> stages = [
       hilliness: 0.1, density: 3.0, dusk: true, skill: 0.87),
   Stage(title: 'Xuyên Việt', theme: ThemeId.lua, km: 5.0,
       bike: BikeId.x67, rivalLevel: 3, prize: 7000, curviness: 0.5,
-      hilliness: 0.4, density: 2.2, twoWay: true, skill: 0.89),
+      hilliness: 0.4, density: 2.2, twoWay: true, skill: 0.86),
 ];
 
 RunConfig stageConfig(int index) {

@@ -1,6 +1,8 @@
 // Dev-only entry point: an autopilot ride with no menus, for eyeballing
 // the renderer. `flutter build web -t lib/showcase.dart`, then open with
-// ?theme=0..4&bike=0..3&two=1&dusk=1&race=1&skip=<seconds to pre-roll>.
+// ?theme=0..4&bike=0..3&two=1&dusk=1&race=1&boost=1&skip=<seconds to pre-roll>.
+import 'dart:async';
+
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
@@ -37,6 +39,12 @@ void main() {
   final skip = arg('skip');
   for (var i = 0; i < skip * 60; i++) {
     world.update(1 / 60, pilot.drive(world));
+  }
+  if (arg('boost') == 1) {
+    // Hold the burst on so its effects are always on show.
+    Timer.periodic(const Duration(milliseconds: 300), (_) {
+      world.boostTimer = world.stats.boostTime;
+    });
   }
   final game = RideGame(world: world, bike: bike, onEvent: (_) {})
     ..autopilot = pilot;

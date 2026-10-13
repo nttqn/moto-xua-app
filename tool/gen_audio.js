@@ -148,7 +148,22 @@ function bump() {
   write('bump.wav', x, 0.7);
 }
 
+// Throttle to the stop: a rising roar with a rush of air over it.
+function boost() {
+  const x = buf(0.9);
+  const air = lowpass(Float64Array.from(x, noise), 2400);
+  let phase = 0;
+  for (let i = 0; i < x.length; i++) {
+    const t = i / x.length;
+    phase += (2 * Math.PI * (110 + 260 * Math.sqrt(t))) / RATE;
+    const env = Math.min(1, t * 12) * (1 - t) ** 0.7;
+    x[i] = env * (Math.tanh(2.2 * Math.sin(phase)) * 0.6 + Math.sin(phase * 2) * 0.2 + air[i] * 1.6);
+  }
+  write('boost.wav', x, 0.7);
+}
+
 engine();
+boost();
 scrape();
 crash();
 whoosh();

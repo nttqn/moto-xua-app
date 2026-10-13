@@ -4,7 +4,7 @@ import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum Sfx { crash, whoosh, bump, scrape, beep, go, win, fail, click, coin }
+enum Sfx { crash, whoosh, bump, scrape, boost, beep, go, win, fail, click, coin }
 
 /// One-shot effects plus a looping engine note whose pitch follows the
 /// speedo. All sounds are synthesised by `tool/gen_audio.js`.

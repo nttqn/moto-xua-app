@@ -29,6 +29,7 @@ class RideGame extends Game {
   /// -1, 0 or 1 from the touch zones or keyboard.
   double steerInput = 0;
   bool brakeInput = false;
+  bool boostInput = false;
 
   /// Lets a test or a demo ride drive instead of the player.
   Autopilot? autopilot;
@@ -44,7 +45,11 @@ class RideGame extends Game {
       final step = left > 1 / 60 ? 1 / 60 : left;
       final controls = autopilot != null
           ? autopilot!.drive(world)
-          : Controls(steer: steerInput, brake: brakeInput);
+          : Controls(
+              steer: steerInput,
+              brake: brakeInput,
+              boost: boostInput,
+            );
       world.update(step, controls);
       renderer.skyline += world.track.segmentAt(world.z).curve *
           world.speed * step * 0.9;

@@ -14,7 +14,7 @@ double shownKmh(double world) => world * 3.6 / kSpeedScale;
 /// In showroom order, slowest first.
 enum BikeId { cub, dd, wave, simson, dream, sport, x67 }
 
-enum Part { engine, exhaust, tyres }
+enum Part { engine, exhaust, tyres, throttle }
 
 const int maxPartLevel = 5;
 
@@ -150,6 +150,7 @@ class BikeStats {
     required this.accel,
     required this.handling,
     required this.grip,
+    this.boostTime = kBoostSeconds,
   });
 
   /// World metres per second.
@@ -158,19 +159,31 @@ class BikeStats {
   final double handling;
   final double grip;
 
+  /// How long one full twist of the throttle lasts, in seconds.
+  final double boostTime;
+
   double get topKmh => shownKmh(topSpeed);
 }
 
-/// Máy = top speed, Pô = pick-up, Lốp = steering and grip.
+/// Wide-open throttle on a stock bike lasts this long ...
+const double kBoostSeconds = 3.0;
+
+/// ... and takes the bike this far past its normal top speed.
+const double kBoostTop = 1.25;
+
+/// Máy = top speed, Pô = pick-up, Lốp = steering and grip, Tay ga = how
+/// long the bike can be held flat out.
 BikeStats statsFor(BikeSpec spec, [Map<Part, int> levels = const {}]) {
   final engine = levels[Part.engine] ?? 0;
   final exhaust = levels[Part.exhaust] ?? 0;
   final tyres = levels[Part.tyres] ?? 0;
+  final throttle = levels[Part.throttle] ?? 0;
   return BikeStats(
     topSpeed: worldSpeed(spec.topKmh * (1 + 0.04 * engine)),
     accel: spec.accel * (1 + 0.10 * exhaust),
     handling: spec.handling * (1 + 0.05 * tyres),
     grip: spec.grip * (1 + 0.08 * tyres),
+    boostTime: kBoostSeconds * (1 + 0.14 * throttle),
   );
 }
 
@@ -179,6 +192,7 @@ BikeStats statsAtLevel(BikeSpec spec, int level) => statsFor(spec, {
   Part.engine: level,
   Part.exhaust: level,
   Part.tyres: level,
+  Part.throttle: level,
 });
 
 /// Cost to take a part from [level] to [level] + 1.
@@ -188,10 +202,12 @@ const Map<Part, String> partNames = {
   Part.engine: 'Máy',
   Part.exhaust: 'Pô',
   Part.tyres: 'Lốp',
+  Part.throttle: 'Tay ga',
 };
 
 const Map<Part, String> partEffects = {
   Part.engine: 'Tốc độ tối đa',
   Part.exhaust: 'Độ bốc',
   Part.tyres: 'Bám đường, bẻ lái',
+  Part.throttle: 'Vặn hết ga lâu hơn',
 };
