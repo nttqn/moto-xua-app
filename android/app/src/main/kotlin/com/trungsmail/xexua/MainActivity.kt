@@ -1,4 +1,4 @@
-package com.trungsmail.moto_xua
+package com.trungsmail.xexua
 
 import io.flutter.embedding.android.FlutterActivity
 

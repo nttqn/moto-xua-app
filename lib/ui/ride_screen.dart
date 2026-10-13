@@ -9,6 +9,7 @@ import '../core/content.dart';
 import '../core/track.dart';
 import '../core/world.dart';
 import '../game/ride_game.dart';
+import '../services/ads_service.dart';
 import '../services/progress.dart';
 import '../services/sound_service.dart';
 import 'theme.dart';
@@ -62,6 +63,7 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     HardwareKeyboard.instance.addHandler(_onKey);
+    SoundService.instance.rideStarted();
     _start();
   }
 
@@ -118,6 +120,7 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     HardwareKeyboard.instance.removeHandler(_onKey);
+    SoundService.instance.rideEnded();
     _game.hudTick.removeListener(_onTick);
     SoundService.instance.stopEngine();
     _popupTimer?.cancel();
@@ -673,17 +676,28 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
           )),
         ),
       if ((next || nextMission) && o.good) const SizedBox(height: 10),
-      SignButton(label: 'CHẠY LẠI', onTap: _restart, color: signBlue),
+      SignButton(
+        label: 'CHẠY LẠI',
+        color: signBlue,
+        onTap: () {
+          AdsService.instance.maybeShowInterstitial();
+          _restart();
+        },
+      ),
       const SizedBox(height: 10),
       SignButton(
         label: 'VỀ',
-        onTap: () => Navigator.of(context).pop(),
+        onTap: () {
+          AdsService.instance.maybeShowInterstitial();
+          Navigator.of(context).pop();
+        },
         color: ink,
       ),
     ]);
   }
 
   void _goTo(Widget screen) {
+    AdsService.instance.maybeShowInterstitial();
     Navigator.of(context)
         .pushReplacement(MaterialPageRoute<void>(builder: (_) => screen));
   }

@@ -2,12 +2,14 @@ import 'dart:math' as math;
 
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../core/bikes.dart';
 import '../core/content.dart';
 import '../core/track.dart';
 import '../core/world.dart';
 import '../game/ride_game.dart';
+import '../services/ads_service.dart';
 import '../services/progress.dart';
 import '../services/sound_service.dart';
 import 'garage_screen.dart';
@@ -24,11 +26,33 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late RideGame _demo;
+  BannerAd? _banner;
+  bool _bannerLoaded = false;
 
   @override
   void initState() {
     super.initState();
     _demo = _newDemo();
+    // The ads SDK starts up in the background; ask for a banner once it is
+    // ready, or straight away if it already is.
+    AdsService.instance.ready.addListener(_loadBanner);
+    _loadBanner();
+  }
+
+  void _loadBanner() {
+    if (_banner != null || !AdsService.instance.ready.value) return;
+    _banner = AdsService.instance.createBannerAd(
+      onLoaded: () {
+        if (mounted) setState(() => _bannerLoaded = true);
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    AdsService.instance.ready.removeListener(_loadBanner);
+    _banner?.dispose();
+    super.dispose();
   }
 
   /// A ride nobody is playing, rolling behind the menu.
@@ -160,6 +184,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
+                  if (_bannerLoaded && _banner != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: SizedBox(
+                        width: _banner!.size.width.toDouble(),
+                        height: _banner!.size.height.toDouble(),
+                        child: AdWidget(ad: _banner!),
+                      ),
+                    ),
                 ],
               ),
             ),

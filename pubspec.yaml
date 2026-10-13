@@ -15,11 +15,13 @@ dependencies:
   flame: ^1.38.2
   shared_preferences: ^2.5.6
   flame_audio: ^2.12.2
+  google_mobile_ads: ^9.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -38,3 +40,11 @@ flutter:
     - family: Bungee
       fonts:
         - asset: assets/fonts/Bungee-Regular.ttf
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/icon/icon.png"
+  # Plain (non-adaptive) icon with artwork reaching the edges: adaptive
+  # icons rendered small with a margin on the owner's Xiaomi launcher.
