@@ -34,12 +34,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        // AdMob App ID. It is not secret (it ships in every APK), so it
-        // lives here; the ADMOB_APP_ID variable can override it. This is
-        // Google's sample ID until the game has its own.
+        // The game's AdMob App ID. It is not secret (it ships in every
+        // APK), so it lives here; the ADMOB_APP_ID variable can override it.
         manifestPlaceholders["admobAppId"] =
             System.getenv("ADMOB_APP_ID")?.takeIf { it.isNotBlank() }
-                ?: "ca-app-pub-3940256099942544~3347511713"
+                ?: "ca-app-pub-9078637596840810~5400351046"
     }
 
     signingConfigs {

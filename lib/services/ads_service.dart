@@ -3,9 +3,9 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 /// AdMob banner + interstitial.
 ///
-/// AdMob units are platform-specific. These are Google's public sample
-/// units, which only ever serve test ads; swap in the game's own before a
-/// store release. The App IDs live outside this file: Android's in
+/// AdMob units are platform-specific. Android has the game's own units.
+/// The iOS ones are still Google's public sample units, which only ever
+/// serve test ads; swap in the game's own before an App Store release. The App IDs live outside this file: Android's in
 /// android/app/build.gradle.kts, iOS's in ios/Runner/Info.plist.
 ///
 /// `google_mobile_ads` only supports Android/iOS, so everything here is a
@@ -22,12 +22,12 @@ class AdsService {
   static String get bannerAdUnitId =>
       defaultTargetPlatform == TargetPlatform.iOS
       ? 'ca-app-pub-3940256099942544/2934735716'
-      : 'ca-app-pub-3940256099942544/6300978111';
+      : 'ca-app-pub-9078637596840810/4087269378';
 
   static String get interstitialAdUnitId =>
       defaultTargetPlatform == TargetPlatform.iOS
       ? 'ca-app-pub-3940256099942544/4411468910'
-      : 'ca-app-pub-3940256099942544/1033173712';
+      : 'ca-app-pub-9078637596840810/4411622879';
 
   /// Becomes true once the SDK has started; nothing loads before that.
   final ValueNotifier<bool> ready = ValueNotifier(false);
