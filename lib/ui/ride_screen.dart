@@ -22,12 +22,21 @@ class RideScreen extends StatefulWidget {
     required this.title,
     this.stageIndex,
     this.missionIndex,
+    this.demoPilot,
+    this.demoSkip = 0,
+    this.demoBoost = false,
   });
 
   final RunConfig config;
   final String title;
   final int? stageIndex;
   final int? missionIndex;
+
+  /// Store screenshots only (see lib/shots.dart): a ride that drives
+  /// itself, starts [demoSkip] seconds in, and can hold the throttle open.
+  final Autopilot? demoPilot;
+  final double demoSkip;
+  final bool demoBoost;
 
   @override
   State<RideScreen> createState() => _RideScreenState();
@@ -75,6 +84,15 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
       bike: progress.selected,
       onEvent: _onEvent,
     );
+    final pilot = widget.demoPilot;
+    if (pilot != null) {
+      for (var i = 0; i < widget.demoSkip * 60; i++) {
+        _world.update(1 / 60, pilot.drive(_world));
+      }
+      _world.events.clear();
+      if (widget.demoBoost) _world.boostTimer = 600;
+      _game.autopilot = pilot;
+    }
     _game.hudTick.addListener(_onTick);
     _paused = false;
     _outcome = null;

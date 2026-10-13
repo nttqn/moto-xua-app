@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xe Xưa: Đua Xe Máy</title>
+<meta name="description" content="Đua xe máy một thời trên phố Sài Gòn, Hà Nội, quốc lộ đồng lúa, đèo núi và miền Tây. Bảy chiếc xe cũ, chạy vô tận, đua chặng, giao hàng.">
+<meta property="og:title" content="Xe Xưa: Đua Xe Máy">
+<meta property="og:description" content="Đua xe máy một thời trên những con đường Việt Nam ngày xưa.">
+<meta property="og:image" content="https://nttqn.github.io/moto-xua-app/img/01-pho-sai-gon.jpg">
+<link rel="icon" href="img/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;700;800&family=Bungee&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f3e9d2; --paper-dark: #e4d5b3; --ink: #3a2a1e;
+    --red: #b3261e; --yellow: #f0c24b; --teal: #1e6b6b; --blue: #1f4e8c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "Be Vietnam Pro", -apple-system, "Segoe UI", Roboto, Arial, sans-serif; line-height: 1.6; }
+  h1, h2, h3, .sign { font-family: Bungee, "Be Vietnam Pro", sans-serif; font-weight: 400; line-height: 1.15; }
+  a { color: var(--blue); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+
+  /* Hero: an enamel-sign sunburst. */
+  .hero { color: var(--ink); text-align: center; padding: 56px 0 0; overflow: hidden;
+    background:
+      repeating-conic-gradient(from 0deg at 50% 78%, #f0c24b 0 11.25deg, #e8a62e 11.25deg 22.5deg); }
+  .hero img.icon { width: 112px; height: 112px; border-radius: 24px; border: 4px solid var(--ink);
+    box-shadow: 0 8px 0 rgba(58, 42, 30, .35); }
+  .hero h1 { font-size: clamp(48px, 11vw, 96px); margin: 18px 0 0; color: var(--yellow);
+    -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; text-shadow: 5px 5px 0 var(--ink); letter-spacing: 2px; }
+  .tag { display: inline-block; margin-top: 14px; padding: 6px 16px; background: var(--red); color: #fff3c4;
+    border: 3px solid var(--ink); border-radius: 8px; font-weight: 800; letter-spacing: 1.5px; font-size: 15px; }
+  .hero p.lead { max-width: 620px; margin: 22px auto 0; font-size: 18px; font-weight: 700; }
+  .stores { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 26px 0 0; }
+  .store { display: inline-block; min-width: 210px; padding: 12px 20px; border-radius: 12px; border: 3px solid var(--ink);
+    background: var(--ink); color: #fff3c4; text-decoration: none; box-shadow: 0 5px 0 rgba(58, 42, 30, .35); }
+  .store small { display: block; font-size: 12px; opacity: .8; }
+  .store b { font-family: Bungee, sans-serif; font-weight: 400; font-size: 18px; }
+  .store.soon { opacity: .78; cursor: default; }
+  .hero .phone { display: block; width: min(300px, 70vw); height: auto; margin: 40px auto -6px; border-radius: 28px 28px 0 0;
+    border: 6px solid var(--ink); border-bottom: 0; }
+  .road { height: 26px; background: var(--ink); }
+
+  section { padding: 56px 0; }
+  section h2 { font-size: clamp(26px, 5vw, 38px); color: var(--red); margin: 0 0 8px; text-align: center; }
+  section > .wrap > p.sub { text-align: center; max-width: 640px; margin: 0 auto 30px; }
+
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .card { background: rgba(255, 255, 255, .7); border: 2px solid rgba(58, 42, 30, .35); border-radius: 14px; padding: 18px; }
+  .card h3 { font-size: 19px; margin: 0 0 6px; }
+  .card p { margin: 0; font-size: 15px; }
+  .card.red h3 { color: var(--red); } .card.blue h3 { color: var(--blue); }
+  .card.teal h3 { color: var(--teal); } .card.brown h3 { color: #8a5f06; }
+
+  .alt { background: var(--paper-dark); }
+  .bikes { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .bike { display: flex; gap: 12px; align-items: baseline; background: var(--paper); border: 2px solid rgba(58, 42, 30, .35);
+    border-radius: 12px; padding: 12px 14px; }
+  .bike .n { font-family: Bungee, sans-serif; color: var(--red); min-width: 128px; font-size: 16px; }
+  .bike .d { font-size: 14px; }
+  .bike .v { margin-left: auto; font-weight: 800; white-space: nowrap; font-size: 14px; }
+
+  .shots { display: flex; gap: 14px; overflow-x: auto; padding: 4px 20px 18px; scroll-snap-type: x mandatory; }
+  .shots img { height: 460px; width: auto; border-radius: 18px; border: 4px solid var(--ink); scroll-snap-align: center; flex: none; }
+
+  footer { background: var(--ink); color: #e9dcc0; padding: 30px 0; text-align: center; font-size: 14px; }
+  footer a { color: var(--yellow); }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <img class="icon" src="img/icon.png" alt="Biểu tượng Xe Xưa" width="112" height="112">
+    <h1>XE XƯA</h1>
+    <div class="tag">ĐUA XE MÁY MỘT THỜI</div>
+    <p class="lead">Nổ máy chiếc xe cũ, lách qua xích lô, xe lam, xe đò trên những con đường Việt Nam ngày xưa.</p>
+    <div class="stores">
+      <span class="store soon"><small>Android</small><b>SẮP RA MẮT</b></span>
+      <span class="store soon"><small>iPhone và iPad</small><b>SẮP RA MẮT</b></span>
+    </div>
+    <img class="phone" src="img/01-pho-sai-gon.jpg" alt="Chạy xe trên phố Sài Gòn" width="540" height="1080">
+  </div>
+</header>
+<div class="road"></div>
+
+<section>
+  <div class="wrap">
+    <h2>BỐN KIỂU CHƠI</h2>
+    <p class="sub">Xe tự lên ga. Giữ nửa trái hoặc nửa phải màn hình để lái, một nút phanh, một nút vặn hết ga. Chơi được bằng một tay.</p>
+    <div class="grid">
+      <div class="card red"><h3>CHẠY VÔ TẬN</h3><p>Ba mạng. Chạy càng xa, lách càng sát thì điểm càng cao. Bật đường hai chiều để lấn làn ăn thêm điểm.</p></div>
+      <div class="card blue"><h3>ĐUA CHẶNG</h3><p>Mười hai chặng với năm tay đua máy, từ Vòng xoay Chợ Lớn tới Xuyên Việt. Vào tốp ba mới mở chặng sau.</p></div>
+      <div class="card teal"><h3>NHIỆM VỤ</h3><p>Giao báo buổi sáng, chở đá cây, chở heo ra chợ, rước dâu kịp giờ lành. Có món hàng ngã một lần là hỏng.</p></div>
+      <div class="card brown"><h3>GARA</h3><p>Dành tiền mua xe mới và độ máy, pô, lốp, tay ga cho từng chiếc.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <h2>BẢY CHIẾC XE</h2>
+    <p class="sub">Mỗi xe một tính nết: chiếc lành dễ lái, chiếc bốc mà hay văng, chiếc nhanh nhất hội nhưng phải ghì mới chịu vào cua.</p>
+    <div class="bikes">
+      <div class="bike"><span class="n">Cánh Én</span><span class="d">Xe của mọi nhà</span><span class="v">72 km/h</span></div>
+      <div class="bike"><span class="n">Đê Đê Đỏ</span><span class="d">Đèn vuông, yếm to</span><span class="v">80 km/h</span></div>
+      <div class="bike"><span class="n">Xe Tàu</span><span class="d">Rẻ mà bốc</span><span class="v">92 km/h</span></div>
+      <div class="bike"><span class="n">Xe Kích</span><span class="d">Hàng Đông Đức xách tay</span><span class="v">100 km/h</span></div>
+      <div class="bike"><span class="n">Giấc Mơ Thái</span><span class="d">Cả gia tài một thời</span><span class="v">110 km/h</span></div>
+      <div class="bike"><span class="n">Xì-po</span><span class="d">Hai thì, pô bầu</span><span class="v">122 km/h</span></div>
+      <div class="bike"><span class="n">Xe 67</span><span class="d">Huyền thoại</span><span class="v">132 km/h</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>NĂM MIỀN ĐƯỜNG</h2>
+    <p class="sub">Phố Sài Gòn với nhà ống và biển hiệu, Hà Nội rợp bóng cây, quốc lộ giữa đồng lúa, đèo núi lúc chiều tà, miền Tây hàng dừa. Tông cây, cột điện hay sạp hàng ven đường là ngã xe.</p>
+  </div>
+  <div class="shots">
+    <img src="img/02-van-het-ga.jpg" alt="Vặn hết ga trên quốc lộ" loading="lazy" width="540" height="1080">
+    <img src="img/03-dua-chang.jpg" alt="Vạch xuất phát chặng đua" loading="lazy" width="540" height="1080">
+    <img src="img/04-gara.jpg" alt="Gara" loading="lazy" width="540" height="1080">
+    <img src="img/05-ha-noi.jpg" alt="Phố Hà Nội" loading="lazy" width="540" height="1080">
+    <img src="img/06-deo-chieu-ta.jpg" alt="Đèo núi lúc chiều tà" loading="lazy" width="540" height="1080">
+    <img src="img/07-mien-tay.jpg" alt="Miền Tây" loading="lazy" width="540" height="1080">
+    <img src="img/08-chang-dua.jpg" alt="Danh sách chặng đua" loading="lazy" width="540" height="1080">
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><a href="support.html">Hỗ trợ</a> · <a href="privacy.html">Chính sách quyền riêng tư</a> · <a href="mailto:trungsmail@gmail.com">trungsmail@gmail.com</a></p>
+    <p>Xe Xưa: Đua Xe Máy. Miễn phí, có quảng cáo. Hình vẽ, âm thanh và nhạc đều do game tự tạo.</p>
+  </div>
+</footer>
+
+</body>
+</html>

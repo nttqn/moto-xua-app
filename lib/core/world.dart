@@ -251,6 +251,8 @@ class World {
       phase = Phase.running;
       countdown = 0;
     }
+    // On the grid the player sits behind the whole field.
+    position = racers.length + 1;
     _spawnZ = 90;
     _spawn();
   }
