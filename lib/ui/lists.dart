@@ -132,7 +132,9 @@ class StagesScreen extends StatelessWidget {
               lines: [
                 '${themeNames[s.theme]} · ${s.km.toStringAsFixed(1)} km'
                     '${s.twoWay ? ' · hai chiều' : ''}'
-                    '${s.dusk ? ' · chiều tà' : ''}',
+                    '${s.dusk ? ' · chiều tà' : ''}'
+                    '${s.night ? ' · ban đêm' : ''}'
+                    '${s.rain ? ' · trời mưa' : ''}',
                 'Đối thủ: ${bikeSpec(s.bike).name}'
                     '${s.rivalLevel > 0 ? ' độ cấp ${s.rivalLevel}' : ''}'
                     '${s.fast != null ? ', có ${bikeSpec(s.fast!).name}' : ''}',
@@ -178,7 +180,10 @@ class MissionsScreen extends StatelessWidget {
               lines: [
                 m.brief,
                 '${m.goalText}${m.ruleText.isEmpty ? '' : ' · ${m.ruleText}'}',
-                '${themeNames[m.theme]} · hợp với ${bikeSpec(m.bike).name}',
+                '${themeNames[m.theme]}'
+                    '${m.night ? ' · ban đêm' : ''}'
+                    '${m.rain ? ' · trời mưa' : ''}'
+                    ' · hợp với ${bikeSpec(m.bike).name}',
               ],
               stars: progress.missionStars[i],
               locked: !progress.missionUnlocked(i),

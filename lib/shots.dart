@@ -4,7 +4,8 @@
 //   flutter build web --release -t lib/shots.dart -o build/shots
 //
 // ?s=home | garage | stages | missions | ride
-// ride: &stage=N | &mission=N | &theme=0..4&two=1&dusk=1   (endless if neither)
+// ride: &stage=N | &mission=N | &theme=0..4&two=1&dusk=1&night=1&rain=1
+//       (endless if neither stage nor mission)
 //       &bike=0..6 &skip=<seconds pre-rolled> &boost=1 &seed=N
 import 'package:flutter/material.dart';
 
@@ -79,6 +80,8 @@ void main() {
           density: 2.6,
           twoWay: base.twoWay,
           dusk: arg('dusk') == 1,
+          night: arg('night') == 1,
+          rain: arg('rain') == 1,
         );
         title = 'Chạy vô tận';
       }

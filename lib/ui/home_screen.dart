@@ -59,7 +59,11 @@ class _HomeScreenState extends State<HomeScreen> {
   RideGame _newDemo() {
     final rng = math.Random();
     final theme = ThemeId.values[rng.nextInt(ThemeId.values.length)];
-    final base = endlessConfig(theme, twoWay: false, seed: rng.nextInt(1000));
+    final base = endlessConfig(theme,
+        twoWay: false,
+        seed: rng.nextInt(1000),
+        time: rng.nextInt(3),
+        rain: rng.nextInt(4) == 0);
     final config = RunConfig(
       mode: RunMode.endless,
       theme: theme,
@@ -68,6 +72,8 @@ class _HomeScreenState extends State<HomeScreen> {
       hilliness: base.hilliness,
       density: 2.2,
       dusk: base.dusk,
+      night: base.night,
+      rain: base.rain,
       lives: 1 << 30,
     );
     final bike = Progress.instance.selected;
@@ -264,6 +270,8 @@ class _EndlessSheet extends StatefulWidget {
 class _EndlessSheetState extends State<_EndlessSheet> {
   ThemeId _theme = ThemeId.saigon;
   bool _twoWay = false;
+  int _time = 0;
+  bool _rain = false;
 
   @override
   Widget build(BuildContext context) {
@@ -297,6 +305,30 @@ class _EndlessSheetState extends State<_EndlessSheet> {
                   ),
               ],
             ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                for (final (i, label) in const [
+                  (0, 'Ban ngày'),
+                  (1, 'Chiều tà'),
+                  (2, 'Ban đêm'),
+                ])
+                  ChoiceChip(
+                    label: Text(label),
+                    selected: _time == i,
+                    onSelected: (_) => setState(() => _time = i),
+                  ),
+                ChoiceChip(
+                  avatar: const Icon(Icons.water_drop_rounded, size: 18),
+                  label: const Text('Trời mưa'),
+                  selected: _rain,
+                  onSelected: (v) => setState(() => _rain = v),
+                ),
+              ],
+            ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Đường hai chiều',
@@ -311,7 +343,10 @@ class _EndlessSheetState extends State<_EndlessSheet> {
               color: signTeal,
               onTap: () => Navigator.of(context).pop(
                 endlessConfig(_theme,
-                    twoWay: _twoWay, seed: math.Random().nextInt(100000)),
+                    twoWay: _twoWay,
+                    seed: math.Random().nextInt(100000),
+                    time: _time,
+                    rain: _rain),
               ),
             ),
           ],

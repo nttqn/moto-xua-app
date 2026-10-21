@@ -18,6 +18,8 @@ class Stage {
     this.density = 1.8,
     this.twoWay = false,
     this.dusk = false,
+    this.night = false,
+    this.rain = false,
     this.fast,
     this.skill = 0.86,
   });
@@ -35,6 +37,8 @@ class Stage {
   final double density;
   final bool twoWay;
   final bool dusk;
+  final bool night;
+  final bool rain;
 
   /// One rival on a quicker bike, to give the leader a fight.
   final BikeId? fast;
@@ -77,14 +81,14 @@ const List<Stage> stages = [
       hilliness: 0.2, density: 2.2, skill: 0.87),
   Stage(title: 'Đường đê sông Hậu', theme: ThemeId.mientay, km: 3.2,
       bike: BikeId.sport, rivalLevel: 0, prize: 2900, curviness: 0.6,
-      hilliness: 0.15, density: 2.0, twoWay: true, dusk: true, skill: 0.87),
+      hilliness: 0.15, density: 2.0, twoWay: true, rain: true, skill: 0.87),
   Stage(title: 'Đèo Ngang mù sương', theme: ThemeId.deo, km: 3.6,
       bike: BikeId.sport, rivalLevel: 2, fast: BikeId.x67, prize: 3500, curviness: 0.9,
       hilliness: 0.9, density: 1.5, twoWay: true,
       skill: 0.87),
   Stage(title: 'Đêm hội Lê Lợi', theme: ThemeId.saigon, km: 3.0,
       bike: BikeId.x67, rivalLevel: 1, prize: 4500, curviness: 0.4,
-      hilliness: 0.1, density: 3.0, dusk: true, skill: 0.87),
+      hilliness: 0.1, density: 3.0, night: true, skill: 0.87),
   Stage(title: 'Xuyên Việt', theme: ThemeId.lua, km: 5.0,
       bike: BikeId.x67, rivalLevel: 3, prize: 7000, curviness: 0.5,
       hilliness: 0.4, density: 2.2, twoWay: true, skill: 0.86),
@@ -112,6 +116,8 @@ RunConfig stageConfig(int index) {
     density: s.density,
     twoWay: s.twoWay,
     dusk: s.dusk,
+    night: s.night,
+    rain: s.rain,
     rivals: rivals,
   );
 }
@@ -141,6 +147,8 @@ class Mission {
     this.density = 1.8,
     this.twoWay = false,
     this.dusk = false,
+    this.night = false,
+    this.rain = false,
     this.curviness = 0.35,
     this.hilliness = 0.2,
   });
@@ -166,6 +174,8 @@ class Mission {
   final double density;
   final bool twoWay;
   final bool dusk;
+  final bool night;
+  final bool rain;
   final double curviness;
   final double hilliness;
 
@@ -214,7 +224,7 @@ const List<Mission> missions = [
   Mission(title: 'Đón con tan trường',
       brief: 'Trống trường sắp điểm. Con bé đứng chờ ở cổng một mình.',
       theme: ThemeId.saigon, goal: GoalType.deliver, bike: BikeId.wave,
-      reward: 800, km: 2.0, pace: 0.70, density: 2.4, dusk: true),
+      reward: 800, km: 2.0, pace: 0.70, density: 2.4, rain: true),
   Mission(title: 'Chở heo ra chợ',
       brief: 'Con heo trăm ký sau yên. Ngã hai lần là nó chạy mất.',
       theme: ThemeId.mientay, goal: GoalType.deliver, bike: BikeId.wave,
@@ -257,10 +267,10 @@ const List<Mission> missions = [
       theme: ThemeId.lua, goal: GoalType.nearMiss, bike: BikeId.dream,
       reward: 3000, count: 25, seconds: 200, density: 2.6, twoWay: true),
   Mission(title: 'Chuyến hàng xuyên đèo',
-      brief: 'Hàng gấp cho ghe ngoài cửa biển. Chỉ được ngã một lần.',
+      brief: 'Hàng gấp cho ghe ngoài cửa biển, phải chạy xuyên đêm. Chỉ được ngã một lần.',
       theme: ThemeId.deo, goal: GoalType.deliver, bike: BikeId.x67,
       reward: 4000, km: 4.5, pace: 0.70, maxCrashes: 1, density: 1.5,
-      twoWay: true, curviness: 0.9, hilliness: 0.9),
+      night: true, twoWay: true, curviness: 0.9, hilliness: 0.9),
 ];
 
 RunConfig missionConfig(int index) {
@@ -275,6 +285,8 @@ RunConfig missionConfig(int index) {
     density: m.density,
     twoWay: m.twoWay,
     dusk: m.dusk,
+    night: m.night,
+    rain: m.rain,
     timeLimit: m.timeLimit,
     maxCrashes: m.maxCrashes,
     goal: m.goal,
@@ -290,7 +302,9 @@ int missionStars(double timeLeft, double timeLimit) {
   return 1;
 }
 
-RunConfig endlessConfig(ThemeId theme, {required bool twoWay, required int seed}) {
+/// [time]: 0 day, 1 dusk, 2 night.
+RunConfig endlessConfig(ThemeId theme,
+    {required bool twoWay, required int seed, int time = 0, bool rain = false}) {
   return RunConfig(
     mode: RunMode.endless,
     theme: theme,
@@ -299,7 +313,9 @@ RunConfig endlessConfig(ThemeId theme, {required bool twoWay, required int seed}
     hilliness: theme == ThemeId.deo ? 0.8 : 0.25,
     density: 1.6,
     twoWay: twoWay,
-    dusk: seed.isOdd,
+    dusk: time == 1,
+    night: time == 2,
+    rain: rain,
   );
 }
 

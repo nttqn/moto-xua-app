@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -28,11 +30,29 @@ class AdsService {
       ? 'ca-app-pub-9078637596840810/7505524220'
       : 'ca-app-pub-9078637596840810/4411622879';
 
+  /// Rewarded units: revive an endless run, double a ride's payout.
+  static String get rewardedAdUnitId =>
+      defaultTargetPlatform == TargetPlatform.iOS
+      ? 'ca-app-pub-9078637596840810/9440937328'
+      : 'ca-app-pub-9078637596840810/8975489739';
+
   /// Becomes true once the SDK has started; nothing loads before that.
   final ValueNotifier<bool> ready = ValueNotifier(false);
   bool get _ready => ready.value;
   InterstitialAd? _interstitialAd;
   int _breaksSinceInterstitial = 0;
+  RewardedAd? _rewarded;
+  bool _rewardedLoading = false;
+
+  /// Whether a rewarded ad is loaded and can be offered right now.
+  final ValueNotifier<bool> rewardedReady = ValueNotifier(false);
+
+  /// Screenshots and tests: behave as if a rewarded ad is always there and
+  /// grant the reward at once.
+  @visibleForTesting
+  bool simulateRewarded = false;
+
+  bool get canShowRewarded => simulateRewarded || rewardedReady.value;
 
   Future<void> initialize() async {
     if (!_supported) return;
@@ -40,6 +60,7 @@ class AdsService {
       await MobileAds.instance.initialize();
       ready.value = true;
       _loadInterstitial();
+      _loadRewarded();
     } catch (_) {
       // Ads failing must never block the game.
     }
@@ -95,5 +116,60 @@ class AdsService {
       },
     );
     ad.show();
+  }
+
+  void _loadRewarded() {
+    if (!_ready || _rewarded != null || _rewardedLoading) return;
+    _rewardedLoading = true;
+    RewardedAd.load(
+      adUnitId: rewardedAdUnitId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          _rewardedLoading = false;
+          _rewarded = ad;
+          rewardedReady.value = true;
+        },
+        onAdFailedToLoad: (_) {
+          _rewardedLoading = false;
+          rewardedReady.value = false;
+          // No fill is common; try again a little later.
+          Timer(const Duration(seconds: 45), _loadRewarded);
+        },
+      ),
+    );
+  }
+
+  /// Plays a rewarded ad. [onReward] runs only if the player watched it
+  /// through; [onDone] always runs once the ad is gone (or could not show).
+  void showRewarded({
+    required VoidCallback onReward,
+    required VoidCallback onDone,
+  }) {
+    if (simulateRewarded) {
+      onReward();
+      onDone();
+      return;
+    }
+    final ad = _rewarded;
+    if (ad == null) {
+      onDone();
+      return;
+    }
+    _rewarded = null;
+    rewardedReady.value = false;
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        _loadRewarded();
+        onDone();
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        ad.dispose();
+        _loadRewarded();
+        onDone();
+      },
+    );
+    ad.show(onUserEarnedReward: (_, _) => onReward());
   }
 }

@@ -61,6 +61,14 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
   Timer? _popupTimer;
   Timer? _resultTimer;
 
+  /// Endless only: the "watch an ad to ride on" board is up.
+  bool _offerRevive = false;
+  bool _revived = false;
+  bool _doubled = false;
+
+  /// After a rewarded ad the player has seen enough ads for this ride.
+  bool _watchedAd = false;
+
   final Map<int, int> _pointers = {};
   final Set<LogicalKeyboardKey> _keys = {};
   bool _brakeTouch = false;
@@ -97,11 +105,16 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
     _paused = false;
     _outcome = null;
     _popup = '';
+    _offerRevive = false;
+    _revived = false;
+    _doubled = false;
+    _watchedAd = false;
     _pointers.clear();
     _keys.clear();
     _brakeTouch = false;
     _boostTouch = false;
     _lastCount = 4;
+    SoundService.instance.setRain(widget.config.rain);
     SoundService.instance.startEngine();
   }
 
@@ -138,6 +151,7 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     HardwareKeyboard.instance.removeHandler(_onKey);
+    SoundService.instance.setRain(false);
     SoundService.instance.rideEnded();
     _game.hudTick.removeListener(_onTick);
     SoundService.instance.stopEngine();
@@ -240,6 +254,62 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
   }
 
   void _showResult() {
+    if (!mounted) return;
+    // One second chance per endless run, if there is an ad to pay for it.
+    if (_world.config.mode == RunMode.endless &&
+        !_revived &&
+        AdsService.instance.canShowRewarded) {
+      setState(() => _offerRevive = true);
+      return;
+    }
+    _settle();
+  }
+
+  void _watchToRevive() {
+    AdsService.instance.showRewarded(
+      onReward: () {
+        if (!mounted) return;
+        _revived = true;
+        _watchedAd = true;
+        _world.revive();
+        SoundService.instance.startEngine();
+        setState(() => _offerRevive = false);
+      },
+      onDone: () {
+        if (!mounted || _revived) return;
+        setState(() => _offerRevive = false);
+        _settle();
+      },
+    );
+  }
+
+  void _declineRevive() {
+    setState(() => _offerRevive = false);
+    _settle();
+  }
+
+  void _watchToDouble(int pay) {
+    AdsService.instance.showRewarded(
+      onReward: () {
+        if (!mounted || _doubled) return;
+        Progress.instance.addCoins(pay);
+        setState(() {
+          _doubled = true;
+          _watchedAd = true;
+        });
+      },
+      onDone: () {},
+    );
+  }
+
+  /// Leaving a finished ride is an ad break, unless the player has just
+  /// chosen to watch one.
+  void _adBreak() {
+    if (!_watchedAd) AdsService.instance.maybeShowInterstitial();
+  }
+
+  /// Records the ride and puts up the result board.
+  void _settle() {
     if (!mounted) return;
     final w = _world;
     final progress = Progress.instance;
@@ -413,6 +483,7 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
                   ),
                 ),
               if (_paused) _pauseOverlay(),
+              if (_offerRevive) _reviveOverlay(),
               if (_outcome != null) _resultOverlay(_outcome!),
             ],
           ),
@@ -590,21 +661,49 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
       color: Colors.black.withValues(alpha: 0.62),
       alignment: Alignment.center,
       padding: const EdgeInsets.all(28),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 340),
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-        decoration: BoxDecoration(
-          color: paper,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: ink, width: 3),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: children,
+      // Scrolls rather than overflowing on a short screen.
+      child: SingleChildScrollView(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 340),
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+          decoration: BoxDecoration(
+            color: paper,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: ink, width: 3),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
+          ),
         ),
       ),
     );
+  }
+
+  Widget _reviveOverlay() {
+    return _board(children: [
+      Text('HẾT MẠNG',
+          textAlign: TextAlign.center,
+          style: signText.copyWith(fontSize: 28, color: signRed)),
+      const SizedBox(height: 6),
+      Text('Điểm: ${_world.score}',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 4),
+      const Text('Xem một quảng cáo để dựng xe chạy tiếp, giữ nguyên điểm.',
+          textAlign: TextAlign.center),
+      const SizedBox(height: 18),
+      SignButton(
+        label: 'CHẠY TIẾP',
+        sub: 'Xem quảng cáo',
+        icon: Icons.ondemand_video_rounded,
+        color: signTeal,
+        onTap: _watchToRevive,
+      ),
+      const SizedBox(height: 10),
+      SignButton(label: 'THÔI, XEM ĐIỂM', onTap: _declineRevive, color: ink),
+    ]);
   }
 
   Widget _pauseOverlay() {
@@ -667,11 +766,29 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
         ),
       if (o.pay > 0) ...[
         const SizedBox(height: 10),
-        Text('+ ${money(o.pay)}',
+        Text(_doubled ? '+ ${money(o.pay * 2)}  (x2)' : '+ ${money(o.pay)}',
             textAlign: TextAlign.center,
             style: signText.copyWith(
                 fontSize: 24, color: const Color(0xFFB07A08))),
       ],
+      if (o.pay > 0 && !_doubled)
+        ValueListenableBuilder<bool>(
+          valueListenable: AdsService.instance.rewardedReady,
+          builder: (context, _, _) => AdsService.instance.canShowRewarded
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: SignButton(
+                    label: 'NHÂN ĐÔI TIỀN',
+                    sub: 'Xem một quảng cáo: thêm ${money(o.pay)}',
+                    icon: Icons.ondemand_video_rounded,
+                    color: signYellow,
+                    textColor: ink,
+                    fontSize: 18,
+                    onTap: () => _watchToDouble(o.pay),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
       const SizedBox(height: 16),
       if (next && o.good)
         SignButton(
@@ -698,7 +815,7 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
         label: 'CHẠY LẠI',
         color: signBlue,
         onTap: () {
-          AdsService.instance.maybeShowInterstitial();
+          _adBreak();
           _restart();
         },
       ),
@@ -706,7 +823,7 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
       SignButton(
         label: 'VỀ',
         onTap: () {
-          AdsService.instance.maybeShowInterstitial();
+          _adBreak();
           Navigator.of(context).pop();
         },
         color: ink,
@@ -715,7 +832,7 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
   }
 
   void _goTo(Widget screen) {
-    AdsService.instance.maybeShowInterstitial();
+    _adBreak();
     Navigator.of(context)
         .pushReplacement(MaterialPageRoute<void>(builder: (_) => screen));
   }

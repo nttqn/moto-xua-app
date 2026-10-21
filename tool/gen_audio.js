@@ -162,7 +162,35 @@ function boost() {
   write('boost.wav', x, 0.7);
 }
 
+// Steady rain on a tin roof and tarmac: a soft wash of noise with drops
+// ticking through it. The last 0.3 s is cross-faded into the start so the
+// 3 s loop has no seam.
+function rain() {
+  const loop = Math.round(3 * RATE);
+  const tail = Math.round(0.3 * RATE);
+  const x = buf((loop + tail) / RATE);
+  const hiss = lowpass(Float64Array.from(x, noise), 5200);
+  const body = lowpass(Float64Array.from(x, noise), 700);
+  for (let i = 0; i < x.length; i++) x[i] = hiss[i] * 0.5 + body[i] * 0.9;
+  for (let d = 0; d < 260; d++) {
+    const at = Math.floor((noise() * 0.5 + 0.5) * (x.length - 400));
+    const amp = 0.25 + 0.5 * (noise() * 0.5 + 0.5);
+    const f = 1800 + 2600 * (noise() * 0.5 + 0.5);
+    for (let k = 0; k < 300; k++) {
+      x[at + k] += amp * Math.sin((2 * Math.PI * f * k) / RATE) * Math.exp(-k / 40);
+    }
+  }
+  const out = new Float64Array(loop);
+  for (let i = 0; i < loop; i++) out[i] = x[i];
+  for (let i = 0; i < tail; i++) {
+    const t = i / tail;
+    out[i] = x[i] * t + x[loop + i] * (1 - t);
+  }
+  write('rain.wav', out, 0.5);
+}
+
 engine();
+rain();
 boost();
 scrape();
 crash();

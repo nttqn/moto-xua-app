@@ -22,6 +22,9 @@ class SoundService {
   final ValueNotifier<bool> enabled = ValueNotifier<bool>(true);
   final Map<Sfx, AudioPool> _pools = {};
   AudioPlayer? _engine;
+  AudioPlayer? _rain;
+  bool _rainWanted = false;
+  bool _rainPlaying = false;
   bool _engineWanted = false;
   bool _engineRunning = false;
   double _lastRate = 0;
@@ -73,6 +76,21 @@ class SoundService {
       }
       _engine = player;
       if (_engineWanted) startEngine();
+    } catch (_) {}
+    try {
+      final player = AudioPlayer();
+      await player.setPlayerMode(PlayerMode.lowLatency);
+      await player.setReleaseMode(ReleaseMode.loop);
+      await player.setVolume(0.55);
+      try {
+        await player
+            .setSource(AssetSource('audio/rain.wav'))
+            .timeout(const Duration(seconds: 5));
+      } on TimeoutException {
+        // As with the engine: it may simply finish loading late.
+      }
+      _rain = player;
+      _applyRain();
     } catch (_) {}
     try {
       final player = AudioPlayer();
@@ -142,6 +160,7 @@ class SoundService {
     _engineRunning = true;
     _lastRate = 0;
     _guard(_engine!.resume());
+    _applyRain();
   }
 
   /// [rev] 0..1 of the bike's range; [voice] shifts the whole note so a
@@ -162,6 +181,22 @@ class SoundService {
     if (!_engineRunning) return;
     _engineRunning = false;
     _guard(_engine!.pause());
+    _applyRain();
+  }
+
+  /// Rain on the ride: plays alongside the engine note, and stops with it.
+  void setRain(bool on) {
+    _rainWanted = on;
+    _applyRain();
+  }
+
+  void _applyRain() {
+    final rain = _rain;
+    if (rain == null) return;
+    final should = _rainWanted && _engineRunning && enabled.value;
+    if (should == _rainPlaying) return;
+    _rainPlaying = should;
+    _guard(should ? rain.resume() : rain.pause());
   }
 
   Future<void> toggle() async {
@@ -172,6 +207,7 @@ class SoundService {
     } else if (enabled.value && _engineWanted) {
       startEngine();
     }
+    _applyRain();
     _applyMusic();
     try {
       final prefs = await SharedPreferences.getInstance();

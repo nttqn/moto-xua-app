@@ -111,6 +111,8 @@ class RunConfig {
     this.goalCount = 0,
     this.lives = 3,
     this.dusk = false,
+    this.night = false,
+    this.rain = false,
   });
 
   final RunMode mode;
@@ -138,6 +140,12 @@ class RunConfig {
   final int goalCount;
   final int lives;
   final bool dusk;
+
+  /// After dark: headlights, lit shop fronts, tail lights.
+  final bool night;
+
+  /// Wet road: the bike runs wide more easily and stops less sharply.
+  final bool rain;
 
   double get goalZ => distanceKm * 1000 * kSpeedScale;
 }
@@ -397,7 +405,7 @@ class World {
     }
     final limit = boosting ? top * kBoostTop : top;
     if (c.brake) {
-      speed -= worldSpeed(70) * dt;
+      speed -= worldSpeed(config.rain ? 52 : 70) * dt;
     } else if (boosting) {
       speed += stats.accel * 2.4 * (limit * 1.03 - speed) * dt;
     } else if (speed > top) {
@@ -429,7 +437,7 @@ class World {
     // Flat out, the bars go heavy.
     final grip = boosting ? 0.85 : 1.0;
     x += steer * stats.handling * grip * (0.3 + 0.7 * sp) * dt;
-    x -= curve * sp * sp * (0.13 / stats.grip) * dt;
+    x -= curve * sp * sp * (0.13 / stats.grip) * (config.rain ? 1.3 : 1) * dt;
     x = x.clamp(-kVergeLimit, kVergeLimit).toDouble();
     z += speed * dt;
 
@@ -749,6 +757,20 @@ class World {
           _finish(false);
         }
     }
+  }
+
+  /// A second chance after an endless run has ended: one more life, up
+  /// on the bike in a clear lane, briefly untouchable.
+  void revive() {
+    if (config.mode != RunMode.endless || phase != Phase.finished) return;
+    lives = 1;
+    success = false;
+    phase = Phase.running;
+    crashTimer = 0;
+    invulnerable = 3.5;
+    speed = stats.topSpeed * 0.4;
+    x = laneX(laneOf(x.clamp(-0.99, 0.99).toDouble()));
+    events.clear();
   }
 
   void _finish(bool ok) {

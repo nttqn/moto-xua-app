@@ -130,6 +130,13 @@ class Progress extends ChangeNotifier {
     return true;
   }
 
+  /// Extra money from outside the normal rewards (a doubled payout).
+  void addCoins(int amount) {
+    if (amount <= 0) return;
+    coins += amount;
+    _save();
+  }
+
   /// Returns the prize paid.
   int recordStage(int index, int position) {
     final prize = racePrize(stages[index], position);

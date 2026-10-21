@@ -27,7 +27,10 @@ class Palette {
     required this.kerbB,
     required this.far,
     required this.farKind,
+    this.mood = Mood.day,
   });
+
+  final Mood mood;
 
   final Color skyTop;
   final Color skyLow;
@@ -65,7 +68,51 @@ class Palette {
     kerbB: _warm(kerbB),
     far: const Color(0xFF6B4A66),
     farKind: farKind,
+    mood: Mood.dusk,
   );
+
+  /// The same place after dark. Ground and buildings keep their colours
+  /// here: the renderer darkens the whole scene afterwards and then adds
+  /// the lights on top, so lit things can stand out.
+  Palette get night => Palette(
+    skyTop: const Color(0xFF162047),
+    skyLow: const Color(0xFF3A4878),
+    fog: const Color(0xFF3B4772),
+    groundA: groundA,
+    groundB: groundB,
+    vergeA: vergeA,
+    vergeB: vergeB,
+    vergeWidth: vergeWidth,
+    roadA: roadA,
+    roadB: roadB,
+    kerbA: kerbA,
+    kerbB: kerbB,
+    far: const Color(0xFF26315C),
+    farKind: farKind,
+    mood: Mood.night,
+  );
+
+  /// Overcast and pouring: everything greyer, the road darker and glossy.
+  Palette get rainy => Palette(
+    skyTop: const Color(0xFF6C7682),
+    skyLow: const Color(0xFFB6BEC5),
+    fog: const Color(0xFFAAB2B9),
+    groundA: _grey(groundA),
+    groundB: _grey(groundB),
+    vergeA: _grey(vergeA),
+    vergeB: _grey(vergeB),
+    vergeWidth: vergeWidth,
+    roadA: shade(_grey(roadA), -0.12),
+    roadB: shade(_grey(roadB), -0.12),
+    kerbA: _grey(kerbA),
+    kerbB: _grey(kerbB),
+    far: Color.lerp(far, const Color(0xFF8A9099), 0.55)!,
+    farKind: farKind,
+    mood: mood == Mood.night ? Mood.night : Mood.rain,
+  );
+
+  static Color _grey(Color c) =>
+      shade(Color.lerp(c, const Color(0xFF8A9099), 0.3)!, -0.08);
 
   static Color _warm(Color c) =>
       Color.lerp(shade(c, -0.22), const Color(0xFFE08A4A), 0.16)!;
@@ -114,6 +161,29 @@ const Map<ThemeId, Palette> palettes = {
   ),
 };
 
+enum Mood { day, dusk, night, rain }
+
+/// Where a vehicle's lamps sit: height up the sprite (fraction from the
+/// ground) and how far apart a pair is (fraction of sprite width either
+/// side of centre; 0 = one lamp in the middle).
+class _Lamps {
+  const _Lamps(this.frontY, this.frontSpread, this.rearY, this.rearSpread);
+  final double frontY;
+  final double frontSpread;
+  final double rearY;
+  final double rearSpread;
+}
+
+const Map<VehicleKind, _Lamps> _lamps = {
+  VehicleKind.moto: _Lamps(0.575, 0, 0.4, 0),
+  VehicleKind.lam: _Lamps(0.42, 0, 0.36, 0.33),
+  VehicleKind.car: _Lamps(0.42, 0.32, 0.47, 0.36),
+  VehicleKind.truck: _Lamps(0.4, 0.32, 0.3, 0.35),
+  VehicleKind.bus: _Lamps(0.3, 0.33, 0.32, 0.31),
+};
+
+enum _Light { none, tail, head, lamp, shop }
+
 /// Lazily drawn, cached pictures of everything that stands on the road.
 class SpriteBank {
   final Map<int, Sprite> _props = {};
@@ -137,7 +207,8 @@ class SpriteBank {
 class _Drawable {
   _Drawable(this.sprite, this.sx, this.sy, this.scale, this.depth, this.clip,
       {this.lean = 0, this.fallen = false, this.ghost = false,
-      this.flame = false});
+      this.flame = false, this.light = _Light.none, this.lightY = 0,
+      this.lightSpread = 0});
   final Sprite sprite;
   final double sx;
   final double sy;
@@ -150,6 +221,11 @@ class _Drawable {
 
   /// Throttle wide open: fire out of the pipe.
   final bool flame;
+
+  /// What glows on it after dark, how high up, and how far apart a pair.
+  final _Light light;
+  final double lightY;
+  final double lightSpread;
 }
 
 /// Paints the classic pseudo-3D road: segments projected one by one,
@@ -187,9 +263,11 @@ class RoadRenderer {
   double skyline = 0;
 
   void render(Canvas canvas, Size size, World w, double clock) {
-    final pal = w.config.dusk
-        ? palettes[w.config.theme]!.dusk
-        : palettes[w.config.theme]!;
+    final base = palettes[w.config.theme]!;
+    var pal = w.config.night
+        ? base.night
+        : (w.config.dusk ? base.dusk : base);
+    if (w.config.rain && !w.config.night) pal = pal.rainy;
     final track = w.track;
     final half = size.width / 2;
     final horizon = size.height * 0.36;
@@ -288,7 +366,9 @@ class RoadRenderer {
 
     void place(Sprite sprite, double z, double xUnits,
         {double lean = 0, bool fallen = false, bool ghost = false,
-        bool flame = false, double boost = spriteBoost}) {
+        bool flame = false, double boost = spriteBoost,
+        _Light light = _Light.none, double lightY = 0,
+        double lightSpread = 0}) {
       final rel = z - camZ;
       // Anything between the camera and the player would fill the screen;
       // it fades out as it drops behind the back wheel.
@@ -305,7 +385,8 @@ class RoadRenderer {
       final sx = half + scale * (xUnits * kRoadHalf + off - camX) * half;
       final sy = horizon - scale * (y - camY) * half;
       items.add(_Drawable(sprite, sx, sy, scale * half * boost, rel, _clip[i],
-          lean: lean, fallen: fallen, ghost: ghost, flame: flame));
+          lean: lean, fallen: fallen, ghost: ghost, flame: flame,
+          light: light, lightY: lightY, lightSpread: lightSpread));
     }
 
     for (var i = 0; i < drawSegments; i++) {
@@ -313,21 +394,37 @@ class RoadRenderer {
       if (s.scenery.isEmpty) continue;
       final z = (baseIndex + i + 0.5) * kSegmentLength;
       for (final item in s.scenery) {
-        place(bank.prop(item.prop, item.variant), z, item.x, boost: 1.0);
+        place(bank.prop(item.prop, item.variant), z, item.x, boost: 1.0,
+            light: switch (item.prop) {
+              Prop.lamp => _Light.lamp,
+              Prop.house || Prop.stall || Prop.hut => _Light.shop,
+              _ => _Light.none,
+            });
       }
     }
     if (w.config.goalZ > 0) place(bank.gate, w.config.goalZ, 0, boost: 1.0);
     for (final v in w.traffic) {
-      place(bank.vehicle(v.kind, v.variant, v.oncoming), v.z, v.x);
+      final lamps = _lamps[v.kind];
+      place(bank.vehicle(v.kind, v.variant, v.oncoming), v.z, v.x,
+          light: lamps == null
+              ? _Light.none
+              : (v.oncoming ? _Light.head : _Light.tail),
+          lightY: lamps == null
+              ? 0
+              : (v.oncoming ? lamps.frontY : lamps.rearY),
+          lightSpread: lamps == null
+              ? 0
+              : (v.oncoming ? lamps.frontSpread : lamps.rearSpread));
     }
     for (final r in w.racers) {
       place(bank.rider(r.setup.bike, 1 + r.colorIndex % 5), r.z, r.x,
-          lean: r.steer * 0.22, flame: r.boostTimer > 0);
+          lean: r.steer * 0.22, flame: r.boostTimer > 0,
+          light: _Light.tail, lightY: 0.4);
     }
     final blink = w.invulnerable > 0 && !w.fallen && (clock * 10).floor().isOdd;
     place(bank.rider(playerBike, 0), w.z, w.x,
         lean: w.steer * 0.26, fallen: w.fallen, ghost: blink,
-        flame: w.boosting);
+        flame: w.boosting, light: _Light.tail, lightY: 0.4);
     final me = items.isEmpty ? null : items.last;
 
     items.sort((a, b) => b.depth.compareTo(a.depth));
@@ -370,6 +467,11 @@ class RoadRenderer {
       _roadsideFx(canvas, w, me, pal, clock);
     }
 
+    if (pal.mood == Mood.night) {
+      _nightLights(canvas, size, w, items, me, horizon, clock);
+    }
+    if (w.config.rain) _rain(canvas, size, w, me, pal, clock);
+
     if (w.boosting) _speedLines(canvas, size, horizon, clock);
 
     if (w.config.dusk) {
@@ -383,6 +485,137 @@ class RoadRenderer {
             const [0, 0.4, 1],
           ),
       );
+    }
+  }
+
+  static void _glow(Canvas canvas, Offset c, double r, Color color) {
+    if (r < 0.5) return;
+    canvas.drawCircle(
+      c,
+      r,
+      Paint()
+        ..blendMode = BlendMode.plus
+        ..shader = ui.Gradient.radial(c, r, [color, color.withValues(alpha: 0)]),
+    );
+  }
+
+  /// Darkens everything drawn so far, then adds what gives off light: the
+  /// rider's headlamp, tail and head lights, street lamps and lit shops.
+  void _nightLights(Canvas canvas, Size size, World w, List<_Drawable> items,
+      _Drawable? me, double horizon, double clock) {
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..color = const Color(0xFF5E6C9E)
+        ..blendMode = BlendMode.multiply,
+    );
+
+    // The rider's own beam on the road ahead.
+    if (me != null && !w.fallen) {
+      final unit = me.sprite.worldW * me.scale;
+      final top = me.sy - me.sprite.worldH * me.scale * 1.02;
+      final far = horizon + (top - horizon) * 0.2;
+      final cx = me.sx + (size.width / 2 - me.sx) * 0.5 + w.steer * 30;
+      final spread = size.width * 0.34;
+      final beam = Path()
+        ..moveTo(me.sx - unit * 0.28, top)
+        ..lineTo(me.sx + unit * 0.28, top)
+        ..lineTo(cx + spread, far)
+        ..lineTo(cx - spread, far)
+        ..close();
+      canvas.drawPath(
+        beam,
+        Paint()
+          ..blendMode = BlendMode.plus
+          ..shader = ui.Gradient.linear(
+            Offset(0, top),
+            Offset(0, far),
+            // Fades in just past the rider's head so the beam has no hard
+            // near edge, then out towards the horizon.
+            const [Color(0x00FFE9A8), Color(0x66FFE9A8), Color(0x00FFE9A8)],
+            const [0, 0.22, 1],
+          ),
+      );
+    }
+
+    final reach = drawSegments * kSegmentLength;
+    for (final d in items) {
+      if (d.light == _Light.none) continue;
+      final wpx = d.sprite.worldW * d.scale;
+      final hpx = d.sprite.worldH * d.scale;
+      if (wpx < 2 || d.sx + wpx < 0 || d.sx - wpx > size.width) continue;
+      // Distant lights fade into the haze rather than vanish.
+      final near = (1 - math.pow(d.depth / reach, 0.8) * 0.85).clamp(0.1, 1.0);
+      double alpha(double a) => (a * near).clamp(0.0, 1.0).toDouble();
+      switch (d.light) {
+        case _Light.tail:
+        case _Light.head:
+          if (d.fallen || d.ghost) break;
+          final y = d.sy - hpx * d.lightY;
+          if (y > d.clip) break;
+          final head = d.light == _Light.head;
+          final colour = head ? const Color(0xFFFFF0C0) : const Color(0xFFFF3A2A);
+          final r = wpx * (head ? 0.42 : 0.2);
+          final xs = d.lightSpread == 0
+              ? [d.sx]
+              : [d.sx - wpx * d.lightSpread, d.sx + wpx * d.lightSpread];
+          for (final x in xs) {
+            _glow(canvas, Offset(x, y), r, colour.withValues(alpha: alpha(head ? 0.9 : 0.8)));
+            _glow(canvas, Offset(x, y), r * 0.3, const Color(0xFFFFFFFF).withValues(alpha: alpha(head ? 0.9 : 0.4)));
+          }
+        case _Light.lamp:
+          final y = d.sy - hpx * 0.95;
+          if (y > d.clip) break;
+          _glow(canvas, Offset(d.sx - wpx * 0.32, y), wpx * 1.6, const Color(0xFFFFD27A).withValues(alpha: alpha(0.55)));
+          _glow(canvas, Offset(d.sx - wpx * 0.32, d.sy), wpx * 2.4, const Color(0xFFFFC66A).withValues(alpha: alpha(0.18)));
+        case _Light.shop:
+          final y = d.sy - hpx * 0.1;
+          if (y > d.clip) break;
+          _glow(canvas, Offset(d.sx, y), wpx * 0.5, const Color(0xFFFFB55A).withValues(alpha: alpha(0.45)));
+        case _Light.none:
+          break;
+      }
+    }
+  }
+
+  /// Rain streaks over everything, and spray thrown up by the back wheel.
+  void _rain(Canvas canvas, Size size, World w, _Drawable? me, Palette pal,
+      double clock) {
+    final night = pal.mood == Mood.night;
+    if (me != null && !w.fallen && w.speed > worldSpeed(20)) {
+      final unit = me.sprite.worldW * me.scale;
+      final mist = Paint();
+      for (var k = 0; k < 7; k++) {
+        final phase = clock * 3 + k * 0.618;
+        final t = phase - phase.floorToDouble();
+        final r1 = _hash(k * 17 + phase.floor() * 5);
+        mist.color = (night ? const Color(0xFF9AA6C8) : const Color(0xFFE8EEF2))
+            .withValues(alpha: 0.4 * (1 - t));
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: Offset(me.sx + unit * (r1 - 0.5) * 0.5 * (0.4 + t),
+                me.sy + unit * 0.05 * t),
+            width: unit * (0.3 + 0.7 * t),
+            height: unit * (0.1 + 0.25 * t),
+          ),
+          mist,
+        );
+      }
+    }
+    final drop = Paint()
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round
+      ..color = (night ? const Color(0xFFB8C4E8) : const Color(0xFFFFFFFF))
+          .withValues(alpha: night ? 0.3 : 0.42);
+    final lean = -0.28 - w.steer * 0.12;
+    for (var k = 0; k < 170; k++) {
+      final fall = _hash(k * 7 + 3) * 0.6 + 1.5;
+      final phase = clock * fall + _hash(k * 13 + 1);
+      final t = phase - phase.floorToDouble();
+      final x = _hash(k * 31 + phase.floor() * 11) * (size.width + 60) - 30;
+      final y = t * size.height * 1.15 - size.height * 0.1;
+      final len = 14 + _hash(k * 3) * 22;
+      canvas.drawLine(Offset(x, y), Offset(x + len * lean, y + len), drop);
     }
   }
 
@@ -551,13 +784,52 @@ class RoadRenderer {
         ),
     );
     // Sun, and a few clouds that drift with the bends.
-    final dusk = pal.skyTop == const Color(0xFF3B3566);
+    final dusk = pal.mood == Mood.dusk;
+    if (pal.mood == Mood.night) {
+      final star = Paint()..color = const Color(0xFFEFF2FF);
+      for (var k = 0; k < 70; k++) {
+        final x = (_hash(k * 7) * size.width * 1.4 - skyline * 0.05) %
+            (size.width * 1.4);
+        final y = _hash(k * 13 + 5) * (horizon - 30);
+        final twinkle = 0.45 + 0.55 * (0.5 + 0.5 * math.sin(clock * 2 + k));
+        star.color = const Color(0xFFEFF2FF).withValues(alpha: twinkle * 0.8);
+        canvas.drawCircle(Offset(x, y), 0.6 + _hash(k * 3) * 1.1, star);
+      }
+      final moon = Offset(size.width * 0.74 - skyline * 0.12, size.height * 0.1);
+      canvas.drawCircle(moon, size.width * 0.07,
+          Paint()..color = const Color(0x33FFF6D8));
+      canvas.drawCircle(moon, size.width * 0.045,
+          Paint()..color = const Color(0xFFFFF6D8));
+    }
+    if (pal.mood == Mood.rain) {
+      final lid = Paint()..color = const Color(0xFF5C6570).withValues(alpha: 0.55);
+      for (var k = 0; k < 9; k++) {
+        final cx = ((k * 0.23 * size.width * 1.6 - skyline * 0.25 + clock * 6) %
+                (size.width * 1.6)) -
+            size.width * 0.3;
+        final r = size.width * (0.12 + (k % 3) * 0.04);
+        canvas.drawOval(
+            Rect.fromCenter(center: Offset(cx, size.height * (0.04 + (k % 4) * 0.035)),
+                width: r * 3, height: r * 0.9),
+            lid);
+      }
+    }
     final sunX = size.width * 0.72 - skyline * 0.15;
     final sunY = dusk ? horizon - size.height * 0.035 : size.height * 0.09;
-    canvas.drawCircle(Offset(sunX, sunY), size.width * (dusk ? 0.085 : 0.06),
-        Paint()..color = dusk ? const Color(0xFFFFD08A) : const Color(0xFFFFF6D0));
-    final cloud = Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: dusk ? 0.25 : 0.7);
-    for (var k = 0; k < 5; k++) {
+    final sunny = pal.mood == Mood.day || pal.mood == Mood.dusk;
+    if (sunny) {
+      canvas.drawCircle(Offset(sunX, sunY), size.width * (dusk ? 0.085 : 0.06),
+          Paint()..color = dusk ? const Color(0xFFFFD08A) : const Color(0xFFFFF6D0));
+    }
+    // Fair-weather clouds: faint at dusk, grey in rain, none at night.
+    final cloud = Paint()
+      ..color = switch (pal.mood) {
+        Mood.day => const Color(0xB3FFFFFF),
+        Mood.dusk => const Color(0x40FFFFFF),
+        Mood.rain => const Color(0x8C8E98A2),
+        Mood.night => const Color(0x00000000),
+      };
+    for (var k = 0; k < (pal.mood == Mood.night ? 0 : 5); k++) {
       final span = size.width * 1.6;
       final cx = ((k * 0.37 * span - skyline * 0.3 + clock * 3) % span + span) %
               span -
