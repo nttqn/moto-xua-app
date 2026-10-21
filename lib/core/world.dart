@@ -316,6 +316,9 @@ class World {
 
   /// Seconds of the current burst left.
   double boostTimer = 0;
+
+  /// Bursts used this ride.
+  int boostsUsed = 0;
   bool get boosting => boostTimer > 0;
 
   /// Wheels on the kerb right now.
@@ -397,6 +400,7 @@ class World {
     final top = stats.topSpeed;
     if (c.boost && boostCharge >= 1 && !boosting) {
       boostTimer = stats.boostTime;
+      boostsUsed++;
       events.add(WorldEvent.boost);
     }
     if (boosting) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'services/ads_service.dart';
+import 'services/leaderboard_service.dart';
 import 'services/progress.dart';
 import 'services/sound_service.dart';
 import 'ui/home_screen.dart';
@@ -15,6 +16,7 @@ Future<void> main() async {
   SoundService.instance.init();
   SoundService.instance.playMenuMusic();
   AdsService.instance.initialize();
+  LeaderboardService.signIn();
   await Progress.instance.load();
   runApp(const MotoXuaApp());
 }

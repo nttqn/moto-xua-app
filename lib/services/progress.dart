@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/bikes.dart';
 import '../core/content.dart';
+import '../core/daily.dart';
 import 'sound_service.dart';
 
 /// Everything the player keeps between sessions: money, bikes, stars.
@@ -24,6 +25,86 @@ class Progress extends ChangeNotifier {
   final List<int> stageStars = List.filled(stages.length, 0);
   final List<int> missionStars = List.filled(missions.length, 0);
   int bestScore = 0;
+
+  /// Today's jobs: which day they are for, how far along each is, which
+  /// have been paid out, and whether the all-three bonus has.
+  String dailyDay = '';
+  final List<int> dailyProgress = [0, 0, 0];
+  final List<bool> dailyClaimed = [false, false, false];
+  bool dailyBonusClaimed = false;
+
+  /// Overridable so tests can move the calendar.
+  @visibleForTesting
+  DateTime Function() clock = DateTime.now;
+
+  List<DailyTask> get dailyTasks {
+    _rollDaily();
+    return dailyTasksFor(clock());
+  }
+
+  bool dailyDone(int i) => dailyProgress[i] >= dailyTasks[i].target;
+
+  /// Jobs finished but not yet paid, plus the bonus if it is waiting.
+  int get dailyClaimable {
+    var n = 0;
+    for (var i = 0; i < 3; i++) {
+      if (dailyDone(i) && !dailyClaimed[i]) n++;
+    }
+    if (dailyBonusReady) n++;
+    return n;
+  }
+
+  bool get dailyBonusReady =>
+      !dailyBonusClaimed && dailyClaimed.every((c) => c);
+
+  /// A new day wipes yesterday's jobs.
+  void _rollDaily() {
+    final today = dayKey(clock());
+    if (dailyDay == today) return;
+    dailyDay = today;
+    for (var i = 0; i < 3; i++) {
+      dailyProgress[i] = 0;
+      dailyClaimed[i] = false;
+    }
+    dailyBonusClaimed = false;
+  }
+
+  /// Adds a finished ride to today's jobs. Returns the jobs this ride
+  /// completed.
+  List<DailyTask> recordDaily(RideTally ride) {
+    final tasks = dailyTasks;
+    final done = <DailyTask>[];
+    for (var i = 0; i < 3; i++) {
+      final t = tasks[i];
+      final before = dailyProgress[i];
+      final amount = ride.amountFor(t);
+      final after = t.isBest ? math.max(before, amount) : before + amount;
+      dailyProgress[i] = math.min(after, t.target);
+      if (before < t.target && dailyProgress[i] >= t.target) done.add(t);
+    }
+    _save();
+    return done;
+  }
+
+  /// Pays job [i] if it is done and unpaid; returns what was paid.
+  int claimDaily(int i) {
+    if (!dailyDone(i) || dailyClaimed[i]) return 0;
+    final pay = dailyTasks[i].reward;
+    dailyClaimed[i] = true;
+    coins += pay;
+    SoundService.instance.play(Sfx.coin);
+    _save();
+    return pay;
+  }
+
+  int claimDailyBonus() {
+    if (!dailyBonusReady) return 0;
+    dailyBonusClaimed = true;
+    coins += dailyBonus;
+    SoundService.instance.play(Sfx.coin);
+    _save();
+    return dailyBonus;
+  }
 
   BikeStats get stats => statsFor(bikeSpec(selected), parts[selected]!);
 
@@ -56,6 +137,17 @@ class Progress extends ChangeNotifier {
       }
       _fill(stageStars, m['stages']);
       _fill(missionStars, m['missions']);
+      final daily = m['daily'] as Map<String, dynamic>?;
+      if (daily != null) {
+        dailyDay = daily['day'] as String? ?? '';
+        final prog = daily['progress'] as List? ?? const [];
+        final claimed = daily['claimed'] as List? ?? const [];
+        for (var i = 0; i < 3; i++) {
+          dailyProgress[i] = i < prog.length ? (prog[i] as int? ?? 0) : 0;
+          dailyClaimed[i] = i < claimed.length && claimed[i] == true;
+        }
+        dailyBonusClaimed = daily['bonus'] == true;
+      }
     } catch (_) {
       // A corrupt save just means starting over.
     }
@@ -95,6 +187,12 @@ class Progress extends ChangeNotifier {
           },
           'stages': stageStars,
           'missions': missionStars,
+          'daily': {
+            'day': dailyDay,
+            'progress': dailyProgress,
+            'claimed': dailyClaimed,
+            'bonus': dailyBonusClaimed,
+          },
         }),
       );
     } catch (_) {}

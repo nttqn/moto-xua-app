@@ -10,8 +10,10 @@ import '../core/track.dart';
 import '../core/world.dart';
 import '../game/ride_game.dart';
 import '../services/ads_service.dart';
+import '../services/leaderboard_service.dart';
 import '../services/progress.dart';
 import '../services/sound_service.dart';
+import 'daily_sheet.dart';
 import 'garage_screen.dart';
 import 'lists.dart';
 import 'ride_screen.dart';
@@ -92,6 +94,15 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _demo = _newDemo());
   }
 
+  Future<void> _leaderboard() async {
+    final opened = await LeaderboardService.show();
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Bảng xếp hạng chưa sẵn sàng. Hãy thử lại sau.'),
+      ));
+    }
+  }
+
   Future<void> _endless() async {
     final config = await showModalBottomSheet<RunConfig>(
       context: context,
@@ -133,7 +144,6 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       ValueListenableBuilder<bool>(
                         valueListenable: SoundService.instance.enabled,
@@ -149,6 +159,19 @@ class _HomeScreenState extends State<HomeScreen> {
                               : Icons.volume_off_rounded),
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      const DailyButton(),
+                      const SizedBox(width: 8),
+                      IconButton.filled(
+                        style: IconButton.styleFrom(
+                          backgroundColor: ink.withValues(alpha: 0.85),
+                          foregroundColor: signYellow,
+                        ),
+                        tooltip: 'Bảng xếp hạng',
+                        onPressed: _leaderboard,
+                        icon: const Icon(Icons.emoji_events_rounded),
+                      ),
+                      const Spacer(),
                       const CoinChip(),
                     ],
                   ),

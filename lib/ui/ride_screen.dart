@@ -6,10 +6,12 @@ import 'package:flutter/services.dart';
 
 import '../core/bikes.dart';
 import '../core/content.dart';
+import '../core/daily.dart';
 import '../core/track.dart';
 import '../core/world.dart';
 import '../game/ride_game.dart';
 import '../services/ads_service.dart';
+import '../services/leaderboard_service.dart';
 import '../services/progress.dart';
 import '../services/sound_service.dart';
 import 'theme.dart';
@@ -66,6 +68,11 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
   bool _revived = false;
   bool _doubled = false;
 
+  /// This ride has been added to today's jobs (once, at the end or when
+  /// the player quits).
+  bool _tallied = false;
+  List<DailyTask> _dailyDone = const [];
+
   /// After a rewarded ad the player has seen enough ads for this ride.
   bool _watchedAd = false;
 
@@ -108,6 +115,8 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
     _offerRevive = false;
     _revived = false;
     _doubled = false;
+    _tallied = false;
+    _dailyDone = const [];
     _watchedAd = false;
     _pointers.clear();
     _keys.clear();
@@ -151,6 +160,8 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     HardwareKeyboard.instance.removeHandler(_onKey);
+    // Quitting part-way still counts what was ridden.
+    _tally();
     SoundService.instance.setRain(false);
     SoundService.instance.rideEnded();
     _game.hudTick.removeListener(_onTick);
@@ -308,9 +319,31 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
     if (!_watchedAd) AdsService.instance.maybeShowInterstitial();
   }
 
+  /// Adds this ride to today's jobs, once.
+  void _tally() {
+    if (_tallied || _world.time <= 0) return;
+    _tallied = true;
+    final w = _world;
+    _dailyDone = Progress.instance.recordDaily(RideTally(
+      nearMisses: w.nearMisses,
+      overtakes: w.overtakes,
+      boosts: w.boostsUsed,
+      km: w.distanceMeters / 1000,
+      wonRace: w.config.mode == RunMode.race && w.success && w.position == 1,
+      missionDone: w.config.mode == RunMode.mission && w.success,
+      endlessScore: w.config.mode == RunMode.endless ? w.score : 0,
+      rain: w.config.rain,
+      night: w.config.night,
+    ));
+  }
+
   /// Records the ride and puts up the result board.
   void _settle() {
     if (!mounted) return;
+    _tally();
+    if (_world.config.mode == RunMode.endless) {
+      LeaderboardService.submitEndless(_world.score);
+    }
     final w = _world;
     final progress = Progress.instance;
     final _Outcome outcome;
@@ -374,6 +407,7 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
 
   void _restart() {
     _resultTimer?.cancel();
+    _tally();
     _game.hudTick.removeListener(_onTick);
     setState(_start);
   }
@@ -763,6 +797,14 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
           child: Text(line,
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 15)),
+        ),
+      for (final t in _dailyDone)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text('✓ Việc hằng ngày: ${t.text}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w800, color: signTeal)),
         ),
       if (o.pay > 0) ...[
         const SizedBox(height: 10),

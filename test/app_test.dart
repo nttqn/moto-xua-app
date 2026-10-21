@@ -4,10 +4,13 @@ import 'package:moto_xua/core/content.dart';
 import 'package:moto_xua/main.dart';
 import 'package:moto_xua/services/progress.dart';
 import 'package:moto_xua/ui/ride_screen.dart';
+import 'package:moto_xua/services/leaderboard_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // A Flame GameWidget never settles, so these pump fixed durations.
 void main() {
+  setUpAll(() => LeaderboardService.disabled = true);
+
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('home leads to the stage list', (tester) async {

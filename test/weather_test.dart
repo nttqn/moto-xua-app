@@ -7,6 +7,7 @@ import 'package:moto_xua/core/world.dart';
 import 'package:moto_xua/services/ads_service.dart';
 import 'package:moto_xua/services/progress.dart';
 import 'package:moto_xua/ui/ride_screen.dart';
+import 'package:moto_xua/services/leaderboard_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _dt = 1 / 60;
@@ -23,6 +24,8 @@ RunConfig _bend({bool rain = false}) => RunConfig(
     );
 
 void main() {
+  setUpAll(() => LeaderboardService.disabled = true);
+
   test('a wet road pushes the bike wider and stops it more slowly', () {
     final stats = statsFor(bikes.first);
     double drift(bool rain) {

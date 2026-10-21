@@ -145,6 +145,16 @@ jobs:
           fi
           echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 -d > ios_profile.mobileprovision
           echo "configured=true" >> "$GITHUB_OUTPUT"
+          # The Game Center entitlement may only be signed in if the profile
+          # carries it, i.e. Game Center is enabled on the App ID and the
+          # profile was made after that. Otherwise leave it out so the
+          # archive still signs; the leaderboard is then simply off on iOS.
+          if security cms -D -i ios_profile.mobileprovision | grep -q "com.apple.developer.game-center"; then
+            echo "game_center=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::The provisioning profile has no Game Center entitlement; the leaderboard is off on iOS in this build."
+            echo "game_center=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install certificate into a temporary keychain
         if: steps.ios_signing.outputs.configured == 'true'
@@ -182,6 +192,15 @@ jobs:
             echo "CODE_SIGN_IDENTITY = Apple Distribution"
             echo "PROVISIONING_PROFILE_SPECIFIER = Xe Xua App Store"
           } >> ios/Flutter/Release.xcconfig
+
+      # Release.xcconfig is read only by the Runner target, so the
+      # entitlement reaches the app and not the pods.
+      - name: Add the Game Center entitlement
+        if: steps.ios_signing.outputs.game_center == 'true'
+        run: |
+          set -e
+          cp tool/Runner.entitlements ios/Runner/Runner.entitlements
+          echo 'CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements' >> ios/Flutter/Release.xcconfig
 
       - name: Archive and export signed IPA
         if: steps.ios_signing.outputs.configured == 'true'
