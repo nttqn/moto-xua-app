@@ -8,6 +8,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moto_xua/core/bikes.dart';
+import 'package:moto_xua/core/cosmetics.dart';
 import 'package:moto_xua/render/art_garage.dart';
 import 'package:moto_xua/render/art_vehicles.dart';
 
@@ -45,7 +46,7 @@ void main() {
         Paint()..color = const Color(0xFF5E5F63));
     for (final b in BikeId.values) {
       for (final front in [false, true]) {
-        final img = buildRider(b, front ? 1 + b.index % 5 : 0, front: front).image;
+        final img = buildRider(b, front ? RiderLook.npc(1 + b.index % 5) : const RiderLook(), front: front).image;
         canvas.drawImage(
             img, Offset(10 + b.index * 170.0, front ? 280 : 10), Paint());
       }

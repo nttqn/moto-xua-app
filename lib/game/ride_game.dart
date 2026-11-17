@@ -3,6 +3,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/bikes.dart';
+import '../core/cosmetics.dart';
 import '../core/world.dart';
 import '../render/road_renderer.dart';
 
@@ -13,8 +14,11 @@ class RideGame extends Game {
     required this.world,
     required BikeId bike,
     required this.onEvent,
+    RiderLook look = const RiderLook(),
     SpriteBank? bank,
-  }) : renderer = RoadRenderer(bank ?? sharedBank)..playerBike = bike;
+  }) : renderer = RoadRenderer(bank ?? sharedBank)
+         ..playerBike = bike
+         ..playerLook = look;
 
   /// Sprites are expensive to draw and identical between rides.
   static final SpriteBank sharedBank = SpriteBank();

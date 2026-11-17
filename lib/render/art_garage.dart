@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 
 import '../core/bikes.dart';
+import 'art_vehicles.dart';
 import 'draw.dart';
 
 const _tyre = Color(0xFF1B1B1B);
@@ -16,8 +17,11 @@ const _red = Color(0xFFD6312B);
 /// A bike standing side-on in the garage, nose to the right. Drawn as
 /// vectors in a 200 x 125 box so it stays crisp at any size.
 class BikeSidePainter extends CustomPainter {
-  const BikeSidePainter(this.bike);
+  const BikeSidePainter(this.bike, {this.livery = 0});
   final BikeId bike;
+
+  /// Index into the bike's liveries.
+  final int livery;
 
   static const double _w = 200;
   static const double _h = 125;
@@ -32,27 +36,29 @@ class BikeSidePainter extends CustomPainter {
     canvas.translate((size.width - _w * s) / 2, (size.height - _h * s) / 2);
     canvas.scale(s);
     canvas.oval(102, 117, 82, 5, const Color(0x33000000));
+    final (body, trim) = bikePaint(bike, livery);
     switch (bike) {
       case BikeId.cub:
-        _cub(canvas);
+        _cub(canvas, body, trim);
       case BikeId.wave:
-        _wave(canvas);
+        _wave(canvas, body, trim);
       case BikeId.dream:
-        _dream(canvas);
+        _dream(canvas, body, trim);
       case BikeId.x67:
-        _x67(canvas);
+        _x67(canvas, body);
       case BikeId.simson:
-        _simson(canvas);
+        _simson(canvas, body, trim);
       case BikeId.dd:
-        _dd(canvas);
+        _dd(canvas, body, trim);
       case BikeId.sport:
-        _sport(canvas);
+        _sport(canvas, body, trim);
     }
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(BikeSidePainter old) => old.bike != bike;
+  bool shouldRepaint(BikeSidePainter old) =>
+      old.bike != bike || old.livery != livery;
 
   static void _wheel(Canvas c, double cx) {
     c.oval(cx, _ay, 24, 24, _tyre);
@@ -150,9 +156,7 @@ class BikeSidePainter extends CustomPainter {
     c.stroke(94, 97, 102, 97, _black, 2.6);
   }
 
-  static void _cub(Canvas c) {
-    const body = Color(0xFF2F6FB0);
-    const cream = Color(0xFFF2EFE6);
+  static void _cub(Canvas c, Color body, Color cream) {
     // Far-side bits first.
     c.stroke(_fx, _ay, 139, 40, _chromeDark, 4);
     _wheel(c, _rx);
@@ -214,9 +218,7 @@ class BikeSidePainter extends CustomPainter {
     _bars(c, 134, 27);
   }
 
-  static void _wave(Canvas c) {
-    const body = Color(0xFFC4262B);
-    const trim = Color(0xFFF0C24B);
+  static void _wave(Canvas c, Color body, Color trim) {
     c.stroke(_fx, _ay, 140, 40, _chromeDark, 4);
     _wheel(c, _rx);
     _wheel(c, _fx);
@@ -281,9 +283,7 @@ class BikeSidePainter extends CustomPainter {
     _bars(c, 134, 28);
   }
 
-  static void _dream(Canvas c) {
-    const body = Color(0xFF6B1F2A);
-    const gold = Color(0xFFD9C7A0);
+  static void _dream(Canvas c, Color body, Color gold) {
     c.stroke(_fx, _ay, 139, 40, _chromeDark, 4);
     _wheel(c, _rx);
     _wheel(c, _fx);
@@ -348,7 +348,7 @@ class BikeSidePainter extends CustomPainter {
     _bars(c, 134, 26);
   }
 
-  static void _x67(Canvas c) {
+  static void _x67(Canvas c, Color body) {
     // A proper little motorcycle: tank between the knees, forks on show.
     _wheel(c, _rx);
     _wheel(c, _fx);
@@ -387,7 +387,7 @@ class BikeSidePainter extends CustomPainter {
     }
     c.oval(19, 69.6, 1.8, 2.6, _black);
     // Long tank with chrome flanks and a knee pad.
-    _shape(c, _black, (p) {
+    _shape(c, body, (p) {
       p.moveTo(92, 52);
       p.quadraticBezierTo(94, 38, 116, 37);
       p.quadraticBezierTo(138, 37, 138, 46);
@@ -447,9 +447,7 @@ class BikeSidePainter extends CustomPainter {
   }
 
   /// Simson S51: tube spine, long tank, leaning two-stroke pot, cigar pipe.
-  static void _simson(Canvas c) {
-    const body = Color(0xFF2E7D4F);
-    const grey = Color(0xFFB4BABD);
+  static void _simson(Canvas c, Color body, Color grey) {
     const frame = Color(0xFF2C2D31);
     _wheel(c, _rx);
     _wheel(c, _fx);
@@ -533,9 +531,7 @@ class BikeSidePainter extends CustomPainter {
   }
 
   /// Cub 70 "DD": the squared-off red one.
-  static void _dd(Canvas c) {
-    const body = Color(0xFFC8242B);
-    const cream = Color(0xFFF2EFE6);
+  static void _dd(Canvas c, Color body, Color cream) {
     c.stroke(_fx, _ay, 139, 40, _chromeDark, 4);
     _wheel(c, _rx);
     _wheel(c, _fx);
@@ -598,9 +594,7 @@ class BikeSidePainter extends CustomPainter {
   }
 
   /// Suzuki RGV 120 "xi-po": two-stroke sports underbone with a fat pipe.
-  static void _sport(Canvas c) {
-    const body = Color(0xFF1C3F94);
-    const white = Color(0xFFF2F4F6);
+  static void _sport(Canvas c, Color body, Color white) {
     const stripe = Color(0xFFE23A2E);
     c.stroke(_fx, _ay, 141, 40, const Color(0xFF3A3D42), 4.8);
     _castWheel(c, _rx);
@@ -672,12 +666,13 @@ class BikeSidePainter extends CustomPainter {
 
 /// The garage picture of [bike], sized by its parent.
 class BikeSideView extends StatelessWidget {
-  const BikeSideView(this.bike, {super.key});
+  const BikeSideView(this.bike, {this.paint = 0, super.key});
   final BikeId bike;
+  final int paint;
 
   @override
   Widget build(BuildContext context) => CustomPaint(
-    painter: BikeSidePainter(bike),
+    painter: BikeSidePainter(bike, livery: paint),
     size: Size.infinite,
   );
 }

@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
 
 import '../core/bikes.dart';
+import '../core/cosmetics.dart';
 import '../core/track.dart';
 import '../core/world.dart';
 import 'art_scenery.dart';
@@ -198,8 +199,8 @@ class SpriteBank {
       _vehicles[k.index * 32 + v * 2 + (front ? 1 : 0)] ??=
           buildVehicle(k, v, front);
 
-  Sprite rider(BikeId b, int color) =>
-      _riders[b.index * 16 + color] ??= buildRider(b, color);
+  Sprite rider(BikeId b, RiderLook look) =>
+      _riders[b.index * 100000 + look.key] ??= buildRider(b, look);
 
   Sprite get gate => _gate ??= buildFinishGate();
 }
@@ -417,12 +418,12 @@ class RoadRenderer {
               : (v.oncoming ? lamps.frontSpread : lamps.rearSpread));
     }
     for (final r in w.racers) {
-      place(bank.rider(r.setup.bike, 1 + r.colorIndex % 5), r.z, r.x,
+      place(bank.rider(r.setup.bike, RiderLook.npc(1 + r.colorIndex % 5)), r.z, r.x,
           lean: r.steer * 0.22, flame: r.boostTimer > 0,
           light: _Light.tail, lightY: 0.4);
     }
     final blink = w.invulnerable > 0 && !w.fallen && (clock * 10).floor().isOdd;
-    place(bank.rider(playerBike, 0), w.z, w.x,
+    place(bank.rider(playerBike, playerLook), w.z, w.x,
         lean: w.steer * 0.26, fallen: w.fallen, ghost: blink,
         flame: w.boosting, light: _Light.tail, lightY: 0.4);
     final me = items.isEmpty ? null : items.last;
@@ -721,6 +722,7 @@ class RoadRenderer {
 
   /// Which bike the player is on; set by the game before the first frame.
   BikeId playerBike = BikeId.cub;
+  RiderLook playerLook = const RiderLook();
 
   final Paint _ghostPaint = Paint()
     ..color = const Color(0x77FFFFFF)

@@ -82,6 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return RideGame(
       world: World(config, statsFor(bikeSpec(bike))),
       bike: bike,
+      look: Progress.instance.look,
       onEvent: (_) {},
     )..autopilot = const Autopilot();
   }
@@ -152,11 +153,26 @@ class _HomeScreenState extends State<HomeScreen> {
                             backgroundColor: ink.withValues(alpha: 0.85),
                             foregroundColor: signYellow,
                           ),
-                          tooltip: on ? 'Tắt tiếng' : 'Bật tiếng',
+                          tooltip: on ? 'Tắt tiếng xe' : 'Bật tiếng xe',
                           onPressed: SoundService.instance.toggle,
                           icon: Icon(on
                               ? Icons.volume_up_rounded
                               : Icons.volume_off_rounded),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: SoundService.instance.music,
+                        builder: (context, on, _) => IconButton.filled(
+                          style: IconButton.styleFrom(
+                            backgroundColor: ink.withValues(alpha: 0.85),
+                            foregroundColor: signYellow,
+                          ),
+                          tooltip: on ? 'Tắt nhạc nền' : 'Bật nhạc nền',
+                          onPressed: SoundService.instance.toggleMusic,
+                          icon: Icon(on
+                              ? Icons.music_note_rounded
+                              : Icons.music_off_rounded),
                         ),
                       ),
                       const SizedBox(width: 8),

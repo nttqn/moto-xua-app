@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/bikes.dart';
 import '../core/content.dart';
+import '../core/cosmetics.dart';
 import '../core/daily.dart';
 import 'sound_service.dart';
 
@@ -25,6 +26,63 @@ class Progress extends ChangeNotifier {
   final List<int> stageStars = List.filled(stages.length, 0);
   final List<int> missionStars = List.filled(missions.length, 0);
   int bestScore = 0;
+
+  /// What the rider wears, and each bike's paint job. Free items are
+  /// always owned; the sets hold what has been bought.
+  int hat = 0;
+  int shirt = 0;
+  final Map<BikeId, int> paints = {for (final b in BikeId.values) b: 0};
+  final Set<int> boughtHats = {};
+  final Set<int> boughtShirts = {};
+  final Map<BikeId, Set<int>> boughtPaints = {
+    for (final b in BikeId.values) b: <int>{},
+  };
+
+  RiderLook get look =>
+      RiderLook(hat: hat, shirt: shirt, paint: paints[selected]!);
+
+  bool hasHat(int i) => hats[i].price == 0 || boughtHats.contains(i);
+  bool hasShirt(int i) => shirts[i].price == 0 || boughtShirts.contains(i);
+  bool hasPaint(BikeId b, int i) =>
+      liveries[b]![i].price == 0 || boughtPaints[b]!.contains(i);
+
+  /// Wears hat [i], buying it first if needed. False if it can't be paid.
+  bool pickHat(int i) {
+    if (!hasHat(i)) {
+      if (!_pay(hats[i].price)) return false;
+      boughtHats.add(i);
+    }
+    hat = i;
+    _save();
+    return true;
+  }
+
+  bool pickShirt(int i) {
+    if (!hasShirt(i)) {
+      if (!_pay(shirts[i].price)) return false;
+      boughtShirts.add(i);
+    }
+    shirt = i;
+    _save();
+    return true;
+  }
+
+  bool pickPaint(BikeId b, int i) {
+    if (!hasPaint(b, i)) {
+      if (!_pay(liveries[b]![i].price)) return false;
+      boughtPaints[b]!.add(i);
+    }
+    paints[b] = i;
+    _save();
+    return true;
+  }
+
+  bool _pay(int price) {
+    if (coins < price) return false;
+    coins -= price;
+    SoundService.instance.play(Sfx.coin);
+    return true;
+  }
 
   /// Today's jobs: which day they are for, how far along each is, which
   /// have been paid out, and whether the all-three bonus has.
@@ -137,6 +195,7 @@ class Progress extends ChangeNotifier {
       }
       _fill(stageStars, m['stages']);
       _fill(missionStars, m['missions']);
+      _loadLook(m['look']);
       final daily = m['daily'] as Map<String, dynamic>?;
       if (daily != null) {
         dailyDay = daily['day'] as String? ?? '';
@@ -152,6 +211,43 @@ class Progress extends ChangeNotifier {
       // A corrupt save just means starting over.
     }
     notifyListeners();
+  }
+
+  void _loadLook(Object? raw) {
+    hat = 0;
+    shirt = 0;
+    boughtHats.clear();
+    boughtShirts.clear();
+    for (final b in BikeId.values) {
+      paints[b] = 0;
+      boughtPaints[b]!.clear();
+    }
+    if (raw is! Map) return;
+    Iterable<int> idx(Object? l, int len) sync* {
+      if (l is! List) return;
+      for (final v in l) {
+        if (v is int && v >= 0 && v < len) yield v;
+      }
+    }
+
+    boughtHats.addAll(idx(raw['hats'], hats.length));
+    boughtShirts.addAll(idx(raw['shirts'], shirts.length));
+    final h = raw['hat'];
+    if (h is int && h >= 0 && h < hats.length && hasHat(h)) hat = h;
+    final sh = raw['shirt'];
+    if (sh is int && sh >= 0 && sh < shirts.length && hasShirt(sh)) shirt = sh;
+    final p = raw['paint'];
+    if (p is! Map) return;
+    for (final b in BikeId.values) {
+      final e = p[b.name];
+      if (e is! Map) continue;
+      final n = liveries[b]!.length;
+      boughtPaints[b]!.addAll(idx(e['owned'], n));
+      final sel = e['sel'];
+      if (sel is int && sel >= 0 && sel < n && hasPaint(b, sel)) {
+        paints[b] = sel;
+      }
+    }
   }
 
   static Iterable<BikeId> _ids(Object? names) sync* {
@@ -187,6 +283,19 @@ class Progress extends ChangeNotifier {
           },
           'stages': stageStars,
           'missions': missionStars,
+          'look': {
+            'hat': hat,
+            'shirt': shirt,
+            'hats': boughtHats.toList(),
+            'shirts': boughtShirts.toList(),
+            'paint': {
+              for (final b in BikeId.values)
+                b.name: {
+                  'sel': paints[b],
+                  'owned': boughtPaints[b]!.toList(),
+                },
+            },
+          },
           'daily': {
             'day': dailyDay,
             'progress': dailyProgress,

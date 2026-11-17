@@ -2,7 +2,7 @@ name: moto_xua
 description: "Xe Xưa: đua xe máy cổ trên đường phố Việt Nam ngày xưa."
 publish_to: 'none'
 
-version: 1.2.0+4
+version: 1.3.0+5
 
 environment:
   sdk: ^3.12.2

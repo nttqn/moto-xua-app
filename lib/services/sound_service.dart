@@ -18,8 +18,14 @@ class SoundService {
   static final SoundService instance = SoundService._();
 
   static const _key = 'sound_enabled';
+  static const _musicKey = 'music_enabled';
 
+  /// Effects, the engine note and rain.
   final ValueNotifier<bool> enabled = ValueNotifier<bool>(true);
+
+  /// The menu theme, switched on its own so a player can ride with the
+  /// engine and no music.
+  final ValueNotifier<bool> music = ValueNotifier<bool>(true);
   final Map<Sfx, AudioPool> _pools = {};
   AudioPlayer? _engine;
   AudioPlayer? _rain;
@@ -39,6 +45,9 @@ class SoundService {
     try {
       final prefs = await SharedPreferences.getInstance();
       enabled.value = prefs.getBool(_key) ?? true;
+      // Before 1.3 one switch muted everything: whoever had it off keeps
+      // the music off too.
+      music.value = prefs.getBool(_musicKey) ?? enabled.value;
     } catch (_) {}
     try {
       // By default every player asks Android for audio focus when it
@@ -132,15 +141,15 @@ class SoundService {
   }
 
   void _applyMusic() {
-    final music = _music;
-    if (music == null) return;
+    final player = _music;
+    if (player == null) return;
     final should =
-        _menuMusic && _rides == 0 && enabled.value && _foreground;
-    final playing = music.state == PlayerState.playing;
+        _menuMusic && _rides == 0 && music.value && _foreground;
+    final playing = player.state == PlayerState.playing;
     if (should && !playing) {
-      _guard(music.resume());
+      _guard(player.resume());
     } else if (!should && playing) {
-      _guard(music.pause());
+      _guard(player.pause());
     }
   }
 
@@ -212,6 +221,15 @@ class SoundService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_key, enabled.value);
+    } catch (_) {}
+  }
+
+  Future<void> toggleMusic() async {
+    music.value = !music.value;
+    _applyMusic();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_musicKey, music.value);
     } catch (_) {}
   }
 

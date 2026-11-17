@@ -97,6 +97,7 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
     _game = RideGame(
       world: _world,
       bike: progress.selected,
+      look: progress.look,
       onEvent: _onEvent,
     );
     final pilot = widget.demoPilot;
@@ -752,16 +753,36 @@ class _RideScreenState extends State<RideScreen> with WidgetsBindingObserver {
       const SizedBox(height: 10),
       SignButton(label: 'CHẠY LẠI', onTap: _restart, color: signBlue),
       const SizedBox(height: 10),
-      ValueListenableBuilder<bool>(
-        valueListenable: SoundService.instance.enabled,
-        builder: (context, on, _) => SignButton(
-          label: on ? 'ÂM THANH: BẬT' : 'ÂM THANH: TẮT',
-          icon: on ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-          color: signYellow,
-          textColor: ink,
-          fontSize: 17,
-          onTap: SoundService.instance.toggle,
-        ),
+      Row(
+        children: [
+          Expanded(
+            child: ValueListenableBuilder<bool>(
+              valueListenable: SoundService.instance.enabled,
+              builder: (context, on, _) => SignButton(
+                label: on ? 'TIẾNG: BẬT' : 'TIẾNG: TẮT',
+                icon: on ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                color: signYellow,
+                textColor: ink,
+                fontSize: 14,
+                onTap: SoundService.instance.toggle,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ValueListenableBuilder<bool>(
+              valueListenable: SoundService.instance.music,
+              builder: (context, on, _) => SignButton(
+                label: on ? 'NHẠC: BẬT' : 'NHẠC: TẮT',
+                icon: on ? Icons.music_note_rounded : Icons.music_off_rounded,
+                color: signYellow,
+                textColor: ink,
+                fontSize: 14,
+                onTap: SoundService.instance.toggleMusic,
+              ),
+            ),
+          ),
+        ],
       ),
       const SizedBox(height: 10),
       SignButton(
